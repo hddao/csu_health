@@ -88,7 +88,7 @@ data.student <- data.student %>%
                    "ELAPerformanceLevel",  "ELAPerformanceLevelDescription",
                    "primaryTeacher_ID", "primaryTeacherPersonID",
                    "CDE_School_Number","CDENum",
-                   "instructiondays", "maxInstructionDay",
+                   # "instructiondays", "maxInstructionDay",
                    "Number_of_Visits", "_numberofvisits",
                    "total_Number_of_courses", "Total_Number_of_Courses",
                    "number_of_F_s", "Number_of_Fs")) %>%
@@ -121,12 +121,78 @@ data.student.dedup <-  data.student %>%
 ## List of students to recheck X&Y
 list.recheckxy <- data.student.dedup %>% 
   dplyr::filter(dupe == TRUE)
+##
 ## Create test score data set for Aim 1
 data.student.aim1 <- data.student %>% 
-  dplyr::select(-c("X", "Y")) %>% 
   ## Remove duplicated observation at all variables except id_dao
   dplyr::distinct(dplyr::across(-id_dao), .keep_all = TRUE) %>% 
   dplyr::arrange(studentKey) 
+##
+## Clean variables 
+data.student.aim1 <- data.student.aim1 %>% 
+  ## Clean var ethnicity 
+  dplyr::mutate(ethnicity = dplyr::case_when(ethnic_code == 1 ~ "Native American",
+                                             ethnic_code == 2 ~ "Asian",
+                                             ethnic_code == 3 ~ "African American",
+                                             ethnic_code == 4 ~ "Hispanic",
+                                             ethnic_code == 5 ~ "White",
+                                             ethnic_code == 6 ~ "Pacific Islander",
+                                             ethnic_code == 7 ~ "Two or more",
+                                             TRUE  ~ NA_character_),
+                gifted = dplyr::case_when(
+                  gifted_talented %in% c("Both",
+                                         "Both Language and Math Gifted",
+                                         "Reading--Math",
+                                         "Reading--Math--Science",
+                                         "Reading--Writing--Math",
+                                         "Reading--Writing--Math--Dance",
+                                         "Reading--Writing--Math--Psych",
+                                         "Reading--Writing--Math--Scien",
+                                         "Reading--Writing--Math--Visua") 
+                  ~ "Both",
+                  gifted_talented %in% c("Creativity--Math",
+                                         "Math",
+                                         "Math--Psychomotor",
+                                         "Math--Visual Arts",
+                                         "Mathematics Gifted")
+                  ~ "Math",
+                  gifted_talented %in% c("Creativity--Reading--W",
+                                         "Creativity--Reading--Writing-",
+                                         "Lang Arts",
+                                         "Language Arts Gifted",
+                                         "Reading",
+                                         "Reading--Writing",
+                                         "Reading--Writing--Scie",
+                                         "Writing")
+                  ~ "ELA",
+                  gifted_talented %in% c("Creative Or Productive Thinki",
+                                         "Creative or Productive Thinki",
+                                         "Creativity", 
+                                         "General Intellect",
+                                         "General Intellectual Ability",
+                                         "Leadership",
+                                         "Leadership Abilities",
+                                         "Non Verbal",
+                                         "Other",
+                                         "Psychomotor",
+                                         "Science",
+                                         "Talent Pool",
+                                         "Visual Arts",
+                                         "Visual or Performing Arts") 
+                  ~ "Others",
+                  gifted_talented %in% c("Not Gifted",
+                                         "Not Identified GT",
+                                         "NULL") 
+                  | is.na(gifted_talented)
+                  ~ "Not Identified as Gifted/Talented",
+                  gifted_talented %in% c("Pending Evaluation")
+                  ~ NA_character_),
+                special_ed = dplyr::case_when(
+                  iep %in% c('"No "', "No", "NULL") | is.na(iep) ~ "No IEP",
+                  iep == "Yes" ~ "IEP")
+                ) %>% 
+  dplyr::select(-c("ethnic_code", "gifted_talented", "iep"))
+
 #' 
 #' 
 #' 
@@ -223,5 +289,8 @@ readr::write_csv(data.ieq, "DATA/Processed/Aim1/final_ieq_20210928.csv")
 saveRDS(data.ieq, "DATA/Processed/Aim1/final_ieq_20210928.rds")
 #'
 #+ r save_testscore
-readr::write_csv(data.student.aim1, "DATA/Processed/Aim1/final_student_aim1_20210928.csv")
-saveRDS(data.student.aim1, "DATA/Processed/Aim1/final_student_aim1_20210928.rds")
+dataset.name <- data.student.aim1
+file.location <- "DATA/Processed/Aim1/final_student_aim1_"
+readr::write_csv(dataset.name, paste0(file.location, format(Sys.Date(), "%Y%m%d"), ".csv")) # Save CSV
+saveRDS(dataset.name, file = paste0(file.location, format(Sys.Date(), "%Y%m%d"), ".rds")) # Save RDS
+rm(dataset.name, file.location)
