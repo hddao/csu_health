@@ -1,30 +1,60 @@
-# ------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------- #
 # Title: Script to clean data necessary for Aim 1
 # Author: Hanh Dung Dao
 # Purpose: To import and clean variables for exposure (measured indoor 
 # environmental quality, IEQ), outcome (student standardized test scores) and 
 # covariate (TBA, tk)
-# ------------------------------------------------------------------------------
- 
+# ---------------------------------------------------------------------------- #
+
  
 # ---- load-sources ------------------------------------------------------------
 # A `source()` file is run to execute its code.
 # source()
-#
+
 # ---- load-packages -----------------------------------------------------------
 # The function `package.check` will check if each package is on the local machine. If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
 # r load_packages
-packages <- c("tidyverse", "magrittr", "tidycensus")
+packages <- c("tidyverse", "magrittr", "tidycensus", "tigris", "sf")
 
-package.check <- lapply(packages, FUN = function(x) {
+package.check <- lapply(packages, function(x) {
   if (!require(x, character.only = TRUE)) install.packages(x, dependencies = TRUE)
   library(x, character.only = TRUE)
 })
 
 # ---- declare-globals ---------------------------------------------------------
-# 
+
+
+
+
 # ---- load-data ---------------------------------------------------------------
 data.student.aim1 <- readr::read_rds("DATA/Processed/Aim1/final_student_aim1_20211105.rds")
+
+# number of student with no longitude/latitude
+nrow(data.student.aim1[is.na(data.student.aim1$X),])
+
+
+
+# ---- clean-student-data ------------------------------------------------------
+student <- data.student.aim1 %>% 
+  dplyr::filter(!is.na(X) & !is.na(Y)) %>% 
+  sf::st_as_sf(coords = c("X", "Y"), crs = 4269)
+
+
+
+# ---- get-tract-boundary ------------------------------------------------------
+
+tract <- tigris::tracts(state = 'CO', year = 2019) 
+student.sf <- sf::st_join(student, tract %>% dplyr::select(GEOID))
+
+# Number of student did not join to a censustract in Colorado
+nrow(student.sf[is.na(student.sf$GEOID),])
+
+
+geoid.list <- student.sf %>% 
+  sf::st_drop_geometry() %>%
+  dplyr::distinct(GEOID) %>% 
+  dplyr::filter(!is.na(GEOID))
+
 
 # ---- get-us-census-data ------------------------------------------------------
 
@@ -47,11 +77,10 @@ vars.list <- tidycensus::load_variables(year = 2019, dataset = "acs5", cache = T
 # Filter to only variable of interest
 vars.list <- vars.list %>% 
   dplyr::filter(group %in% c(
-    "B01003", #TOTAL POPULATION
+    "B01003", #WEIGHTED TOTAL POPULATION
     "B11003",	#FAMILY TYPE BY PRESENCE AND AGE OF OWN CHILDREN UNDER 18 YEARS
     "B11004",	#FAMILY TYPE BY PRESENCE AND AGE OF RELATED CHILDREN UNDER 18 YEARS
     "B11005",	#HOUSEHOLDS BY PRESENCE OF PEOPLE UNDER 18 YEARS BY HOUSEHOLD TYPE
-    "B11016",	#HOUSEHOLD TYPE BY HOUSEHOLD SIZE
     "B15003",	#EDUCATIONAL ATTAINMENT FOR THE POPULATION 25 YEARS AND OVER
     "B17001",	#POVERTY STATUS IN THE PAST 12 MONTHS BY SEX BY AGE
     "B17010",	#POVERTY STATUS IN THE PAST 12 MONTHS OF FAMILIES BY FAMILY TYPE BY PRESENCE OF RELATED CHILDREN UNDER 18 YEARS BY AGE OF RELATED CHILDREN
@@ -62,20 +91,82 @@ vars.list <- vars.list %>%
     "B23025",	#EMPLOYMENT STATUS FOR THE POPULATION 16 YEARS AND OVER
     "B25003",	#TENURE
     "B25012",	#TENURE BY FAMILIES AND PRESENCE OF OWN CHILDREN
+    "B25014", #TENURE BY OCCUPANTS PER ROOM
     "B27001", #HEALTH INSURANCE COVERAGE STATUS BY SEX BY AGE
     ""
   ))
 
 # We extracted ACS data below. This step might take 5-15 minutes to load the data depending on your internet bandwidth.
-acs5yr <- tidycensus::get_acs(geography = "tract", 
+raw.acs5yr <- tidycensus::get_acs(geography = "tract", 
                               variables = vars.list$name, 
                               year = 2018, 
-                              geometry = TRUE, 
-                              tigris_use_cache = TRUE, 
-                              keep_geo_vars = FALSE, 
+                              state = "CO",
+                              geometry = FALSE, 
+                              tigris_use_cache = FALSE, 
+                              keep_geo_vars = TRUE, 
                               cache = TRUE, 
                               survey = "acs5",
                               output = "tidy") 
 
+acs5yr <- raw.acs5yr %>% 
+  dplyr::select(GEOID, variable, estimate) %>% 
+  tidyr::spread(variable, estimate) %>% 
+  dplyr::filter(GEOID %in% as.vector(geoid.list$GEOID))
 
 
+# Create a function to calculate % from multiple columns
+construct.pct.var <- function(dat, output.var, input.numerator, input.denominator) {
+  dat %>% dplyr::select({{input.numerator}}) %>% rowSums(na.rm=T) -> temp.num
+  dat %>% dplyr::select({{input.denominator}}) %>% rowSums(na.rm=T) -> temp.denom
+  dat %>% dplyr::mutate("{{output.var}}" := temp.num/temp.denom)
+}
+
+# Calculate census estimate
+acs5yr <- acs5yr %>% 
+  # family status: B11003
+  construct.pct.var(ses.married.6to17, B11003_006, c(B11003_006, B11003_019, B11003_013)) %>% 
+  construct.pct.var(ses.married.less18, B11005_004, B11005_002) %>% 
+  # educational attainment: B15003
+  construct.pct.var(ses.edu.highschoolmore, B15003_017:B15003_025, B15003_001) %>% 
+  construct.pct.var(ses.edu.bachelormore, B15003_022:B15003_025, B15003_001) %>% 
+  # povery: B17001
+  construct.pct.var(ses.poverty.all, B17001_002, B17001_001) %>% 
+  construct.pct.var(ses.poverty.6to17, 
+                    c(B17001_006, B17001_007, B17001_008, B17001_009,
+                      B17001_020, B17001_021, B17001_022, B17001_023),
+                    c(B17001_006, B17001_007, B17001_008, B17001_009,
+                      B17001_020, B17001_021, B17001_022, B17001_023,
+                      B17001_035, B17001_036, B17001_037, B17001_038, 
+                      B17001_049, B17001_050, B17001_051, B17001_052)) %>% 
+  # median hh income: B19013
+  dplyr::mutate(ses.medianhhincome = B19013_001) %>% 
+  # median family income: B19113
+  dplyr::mutate(ses.medianfamincome = B19113_001) %>% 
+  # median family income with kids: B19125
+  dplyr::mutate(ses.medianfamincome.withkid = B19125_002) %>% 
+  # employment: B23025
+  construct.pct.var(ses.unemployed, B23025_007, B23025_001) %>% 
+  # tenure/house ownership: B25003
+  construct.pct.var(ses.renter.all, B25003_003, B25003_001) %>% 
+  # tenure/house ownership with children: B25012
+  construct.pct.var(ses.renter.withkid.6to17, B25012_015, c(B25012_015, B25012_007)) %>% 
+  # crowding: B25014
+  construct.pct.var(ses.crowding, 
+                    c(B25014_005, B25014_006, B25014_007,
+                      B25014_011, B25014_012, B25014_013),
+                    B25014_001) %>% 
+  # insurance: B27001
+  construct.pct.var(ses.uninsured.6to18, c(B27001_008, B27001_036), c(B27001_006, B27001_034)) %>% 
+  construct.pct.var(ses.uninsured.all,
+                    c(B27001_005, B27001_008, B27001_011, B27001_014, B27001_017,
+                      B27001_020, B27001_023, B27001_026, B27001_029, 
+                      B27001_033, B27001_036, B27001_039, B27001_042, B27001_045, 
+                      B27001_048, B27001_051, B27001_054, B27001_057), 
+                    B27001_001)
+ 
+acs5yr.ses <- acs5yr %>% dplyr::select(-contains(c("B1", "B2")))
+
+# ---- merge-with-testscore-data -----------------------------------------------
+
+student.sf <- student.sf %>% 
+  dplyr::left_join(acs5yr.ses, by = "GEOID")
