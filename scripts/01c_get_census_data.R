@@ -1,67 +1,32 @@
 # ---------------------------------------------------------------------------- #
-# Title: Script to clean data necessary for Aim 1
+# Title: Script to clean US Census data
 # Author: Hanh Dung Dao
-# Purpose: To import and clean variables for exposure (measured indoor 
-# environmental quality, IEQ), outcome (student standardized test scores) and 
-# covariate (TBA, tk)
+# Purpose: To import and clean variables from US Census
 # ---------------------------------------------------------------------------- #
 
  
-# ---- load-sources ------------------------------------------------------------
+# Preparation -------------------------------------------------------------
+
+# * Load sources ----------------------------------------------------------
 # A `source()` file is run to execute its code.
 # source()
 
-# ---- load-packages -----------------------------------------------------------
+# * Load packages ---------------------------------------------------------
 # The function `package.check` will check if each package is on the local machine. If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
 # r load_packages
-packages <- c("tidyverse", "magrittr", "tidycensus", "tigris", "sf")
+packages <- c("tidyverse", "magrittr", "tidycensus")
 
 package.check <- lapply(packages, function(x) {
   if (!require(x, character.only = TRUE)) install.packages(x, dependencies = TRUE)
   library(x, character.only = TRUE)
 })
 
-# ---- declare-globals ---------------------------------------------------------
+# * Declare globals -------------------------------------------------------
 
 
+# Download raw US Census data ---------------------------------------------
 
-
-# ---- load-data ---------------------------------------------------------------
-data.student.aim1 <- readr::read_rds("DATA/Processed/Aim1/final_student_aim1_20211105.rds")
-
-# number of student with no longitude/latitude
-nrow(data.student.aim1[is.na(data.student.aim1$X),])
-
-
-
-# ---- clean-student-data ------------------------------------------------------
-student <- data.student.aim1 %>% 
-  dplyr::filter(!is.na(X) & !is.na(Y)) %>% 
-  sf::st_as_sf(coords = c("X", "Y"), crs = 4269)
-
-
-
-# ---- get-tract-boundary ------------------------------------------------------
-
-tract <- tigris::tracts(state = 'CO', year = 2019) 
-student.sf <- sf::st_join(student, tract %>% dplyr::select(GEOID))
-
-# Number of student did not join to a censustract in Colorado
-nrow(student.sf[is.na(student.sf$GEOID),])
-
-
-geoid.list <- student.sf %>% 
-  sf::st_drop_geometry() %>%
-  dplyr::distinct(GEOID) %>% 
-  dplyr::filter(!is.na(GEOID))
-
-
-# ---- get-us-census-data ------------------------------------------------------
-
-# Our test scores data ranges 2015-2019
-summary(as.factor(data.student.aim1$endyear))
-# Therefore, we'll use US Census ACS 5-year 2019 
-
+# Our test scores data ranges 2015-2019. Therefore, we'll use US Census ACS 5-year 2019 
 
 # Register tidycensus api key
 api_key <- readLines("DATA/Raw/tidycensusapikey.txt")
@@ -108,11 +73,12 @@ raw.acs5yr <- tidycensus::get_acs(geography = "tract",
                               survey = "acs5",
                               output = "tidy") 
 
+# Clean US Census data ----------------------------------------------------
+
+# Convert dataset from long to wide form
 acs5yr <- raw.acs5yr %>% 
   dplyr::select(GEOID, variable, estimate) %>% 
-  tidyr::spread(variable, estimate) %>% 
-  dplyr::filter(GEOID %in% as.vector(geoid.list$GEOID))
-
+  tidyr::spread(variable, estimate) 
 
 # Create a function to calculate % from multiple columns
 construct.pct.var <- function(dat, output.var, input.numerator, input.denominator) {
@@ -164,9 +130,16 @@ acs5yr <- acs5yr %>%
                       B27001_048, B27001_051, B27001_054, B27001_057), 
                     B27001_001)
  
-acs5yr.ses <- acs5yr %>% dplyr::select(-contains(c("B1", "B2")))
+# acs5yr.ses <- acs5yr %>% dplyr::select(-contains(c("B1", "B2")))
 
-# ---- merge-with-testscore-data -----------------------------------------------
 
-student.sf <- student.sf %>% 
-  dplyr::left_join(acs5yr.ses, by = "GEOID")
+# Save to disk ------------------------------------------------------------
+# r save_ses
+dataset.name <- acs5yr
+file.location <- "DATA/Processed/Aim1/aim1_ses_"
+file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_ses_"
+readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
+readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".csv")) # Archived CSV
+saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
+saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".rds")) # ARchived RDS
+rm(dataset.name, file.location)
