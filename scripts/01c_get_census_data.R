@@ -136,10 +136,10 @@ acs5yr <- acs5yr %>%
 # Save to disk ------------------------------------------------------------
 # r save_ses
 dataset.name <- acs5yr
-file.location <- "DATA/Processed/Aim1/aim1_ses_"
-file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_ses_"
+file.location <- "DATA/Processed/Aim1/aim1_ses"
+file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_ses"
 readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
-readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".csv")) # Archived CSV
+readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
 saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
-saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".rds")) # ARchived RDS
+saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
 rm(dataset.name, file.location)

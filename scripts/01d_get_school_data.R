@@ -81,10 +81,10 @@ school <- all_school %>%
 # Save to disk ------------------------------------------------------------
 # r save_school
 dataset.name <- school
-file.location <- "DATA/Processed/Aim1/aim1_school_"
-file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_school_"
+file.location <- "DATA/Processed/Aim1/aim1_school"
+file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_school"
 readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
-readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".csv")) # Archived CSV
+readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
 saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
-saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".rds")) # ARchived RDS
+saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
 rm(dataset.name, file.location)

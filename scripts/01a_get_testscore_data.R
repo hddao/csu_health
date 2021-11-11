@@ -211,10 +211,10 @@ data.testscore.aim1 <- data.testscore.aim1 %>%
 # Save to disk ------------------------------------------------------------
 # r save_testscore
 dataset.name <- data.testscore.aim1
-file.location <- "DATA/Processed/Aim1/aim1_testscore_"
-file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_testscore_"
+file.location <- "DATA/Processed/Aim1/aim1_testscore"
+file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_testscore"
 readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
-readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".csv")) # Archived CSV
+readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
 saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
-saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "%Y%m%d"), ".rds")) # ARchived RDS
+saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
 rm(dataset.name, file.location)

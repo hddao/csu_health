@@ -26,20 +26,47 @@ package.check <- lapply(packages, function(x) {
 
 
 
-
-
-
 # Load data ---------------------------------------------------------------
-data.student.aim1 <- readr::read_rds("DATA/Processed/Aim1/aim1_testscore.rds")
+testscore <- readr::read_rds("DATA/Processed/Aim1/aim1_testscore.rds")
 ieq <- readr::read_rds("DATA/Processed/Aim1/aim1_ieq.rds")
+school <- readr::read_rds("DATA/Processed/Aim1/aim1_school.rds")
+ses <- readr::read_rds("DATA/Processed/Aim1/aim1_ses.rds")
+tract <- tigris::tracts(state = 'CO', year = 2019) 
+
 
 # number of student with no longitude/latitude
-nrow(data.student.aim1[is.na(data.student.aim1$x),])
+
+# Create an emptu tibble object to collect flowchart sample size
+flowchart <- tibble::tibble(
+  name = as.character(),
+  n = as.numeric()
+)
+
+# Number of student with no longitude/latitude
+flowchart %<>% add_row(name = "Exclude: Testscore with no long/lat", n = sum(is.na(testscore$x) | is.na(testscore$y)) )
+
+
+# Convert testscore to a sf object
+testscore.sf <- testscore %>% 
+  dplyr::filter(!is.na(x) & !is.na(y)) %>% 
+  # convert to sf object
+  sf::st_as_sf(coords = c("x", "y"), crs = 4326) %>% 
+  # Reproject to match crs from the sf object "tract"
+  sf::st_transform(sf::st_crs(tract))
+
+
+
+
+
+
+
+
+
 
 
 
 # ---- clean-student-data ------------------------------------------------------
-student <- data.student.aim1 %>% 
+student <- testscore %>% 
   dplyr::filter(!is.na(X) & !is.na(Y)) %>% 
   sf::st_as_sf(coords = c("X", "Y"), crs = 4269)
 
