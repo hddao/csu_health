@@ -6,17 +6,20 @@
 
  
 # Preparation -------------------------------------------------------------
+rm(list = ls())
+
 
 # * Load sources ----------------------------------------------------------
 # A `source()` file is run to execute its code.
 # source()
 
 # * Load packages ---------------------------------------------------------
-# The function `package.check` will check if each package is on the local machine. If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
+# The function `package.check` will check if each package is on the local machine. 
+# If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
 # r load_packages
 packages <- c("tidyverse", "magrittr", "tidycensus")
 
-package.check <- lapply(packages, function(x) {
+package_check <- lapply(packages, function(x) {
   if (!require(x, character.only = TRUE)) install.packages(x, dependencies = TRUE)
   library(x, character.only = TRUE)
 })
@@ -62,7 +65,7 @@ vars.list <- vars.list %>%
   ))
 
 # We extracted ACS data below. This step might take 5-15 minutes to load the data depending on your internet bandwidth.
-raw.acs5yr <- tidycensus::get_acs(geography = "tract", 
+raw_acs5yr <- tidycensus::get_acs(geography = "tract", 
                               variables = vars.list$name, 
                               year = 2018, 
                               state = "CO",
@@ -76,12 +79,12 @@ raw.acs5yr <- tidycensus::get_acs(geography = "tract",
 # Clean US Census data ----------------------------------------------------
 
 # Convert dataset from long to wide form
-acs5yr <- raw.acs5yr %>% 
+acs5yr <- raw_acs5yr %>% 
   dplyr::select(GEOID, variable, estimate) %>% 
   tidyr::spread(variable, estimate) 
 
 # Create a function to calculate % from multiple columns
-construct.pct.var <- function(dat, output.var, input.numerator, input.denominator) {
+construct_pct_var <- function(dat, output.var, input.numerator, input.denominator) {
   dat %>% dplyr::select({{input.numerator}}) %>% rowSums(na.rm=T) -> temp.num
   dat %>% dplyr::select({{input.denominator}}) %>% rowSums(na.rm=T) -> temp.denom
   dat %>% dplyr::mutate("{{output.var}}" := temp.num/temp.denom)
@@ -90,14 +93,14 @@ construct.pct.var <- function(dat, output.var, input.numerator, input.denominato
 # Calculate census estimate
 acs5yr <- acs5yr %>% 
   # family status: B11003
-  construct.pct.var(ses.married.6to17, B11003_006, c(B11003_006, B11003_019, B11003_013)) %>% 
-  construct.pct.var(ses.married.less18, B11005_004, B11005_002) %>% 
+  construct_pct_var(ses_married_6to17, B11003_006, c(B11003_006, B11003_019, B11003_013)) %>% 
+  construct_pct_var(ses_married_less18, B11005_004, B11005_002) %>% 
   # educational attainment: B15003
-  construct.pct.var(ses.edu.highschoolmore, B15003_017:B15003_025, B15003_001) %>% 
-  construct.pct.var(ses.edu.bachelormore, B15003_022:B15003_025, B15003_001) %>% 
+  construct_pct_var(ses_edu_highschoolmore, B15003_017:B15003_025, B15003_001) %>% 
+  construct_pct_var(ses_edu_bachelormore, B15003_022:B15003_025, B15003_001) %>% 
   # povery: B17001
-  construct.pct.var(ses.poverty.all, B17001_002, B17001_001) %>% 
-  construct.pct.var(ses.poverty.6to17, 
+  construct_pct_var(ses_poverty_all, B17001_002, B17001_001) %>% 
+  construct_pct_var(ses_poverty_6to17, 
                     c(B17001_006, B17001_007, B17001_008, B17001_009,
                       B17001_020, B17001_021, B17001_022, B17001_023),
                     c(B17001_006, B17001_007, B17001_008, B17001_009,
@@ -105,41 +108,43 @@ acs5yr <- acs5yr %>%
                       B17001_035, B17001_036, B17001_037, B17001_038, 
                       B17001_049, B17001_050, B17001_051, B17001_052)) %>% 
   # median hh income: B19013
-  dplyr::mutate(ses.medianhhincome = B19013_001) %>% 
+  dplyr::mutate(ses_medianhhincome = B19013_001) %>% 
   # median family income: B19113
-  dplyr::mutate(ses.medianfamincome = B19113_001) %>% 
+  dplyr::mutate(ses_medianfamincome = B19113_001) %>% 
   # median family income with kids: B19125
-  dplyr::mutate(ses.medianfamincome.withkid = B19125_002) %>% 
+  dplyr::mutate(ses_medianfamincome_withkid = B19125_002) %>% 
   # employment: B23025
-  construct.pct.var(ses.unemployed, B23025_007, B23025_001) %>% 
+  construct_pct_var(ses_unemployed, B23025_007, B23025_001) %>% 
   # tenure/house ownership: B25003
-  construct.pct.var(ses.renter.all, B25003_003, B25003_001) %>% 
+  construct_pct_var(ses_renter_all, B25003_003, B25003_001) %>% 
   # tenure/house ownership with children: B25012
-  construct.pct.var(ses.renter.withkid.6to17, B25012_015, c(B25012_015, B25012_007)) %>% 
+  construct_pct_var(ses_renter_withkid_6to17, B25012_015, c(B25012_015, B25012_007)) %>% 
   # crowding: B25014
-  construct.pct.var(ses.crowding, 
+  construct_pct_var(ses_crowding, 
                     c(B25014_005, B25014_006, B25014_007,
                       B25014_011, B25014_012, B25014_013),
                     B25014_001) %>% 
   # insurance: B27001
-  construct.pct.var(ses.uninsured.6to18, c(B27001_008, B27001_036), c(B27001_006, B27001_034)) %>% 
-  construct.pct.var(ses.uninsured.all,
+  construct_pct_var(ses_uninsured_6to18, c(B27001_008, B27001_036), c(B27001_006, B27001_034)) %>% 
+  construct_pct_var(ses_uninsured_all,
                     c(B27001_005, B27001_008, B27001_011, B27001_014, B27001_017,
                       B27001_020, B27001_023, B27001_026, B27001_029, 
                       B27001_033, B27001_036, B27001_039, B27001_042, B27001_045, 
                       B27001_048, B27001_051, B27001_054, B27001_057), 
-                    B27001_001)
+                    B27001_001) %>% 
+  # Set the correct variable type
+  dplyr::mutate_at(.vars = c("GEOID"), as.factor) 
+
  
-# acs5yr.ses <- acs5yr %>% dplyr::select(-contains(c("B1", "B2")))
+acs5yr_ses <- acs5yr %>% dplyr::select(-contains(c("B1", "B2")))
 
 
 # Save to disk ------------------------------------------------------------
-# r save_ses
-dataset.name <- acs5yr
-file.location <- "DATA/Processed/Aim1/aim1_ses"
-file.location.arc <- "DATA/Processed/Aim1/Archived/aim1_ses"
-readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
-readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
-saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
-saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
-rm(dataset.name, file.location)
+save_data <- function(dataset.name, file.location, file.location.arc){
+  readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
+  readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
+  saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
+  saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
+}
+
+save_data(acs5yr, "DATA/Processed/Aim1/aim1_ses", "DATA/Processed/Aim1/Archived/aim1_ses")
