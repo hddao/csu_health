@@ -14,7 +14,7 @@ rm(list = ls())
 # source()
 
 # * Load packages ---------------------------------------------------------
-# The function `package.check` will check if each package is on the local machine. 
+# The function `package.check` will check if each package is on the local machine.
 # If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
 # r load_packages
 packages <- c("tidyverse", "magrittr", "tigris", "sf", "stars", "terra", "remotes", "devtools", "rsat", "getlandsat", "zip")
@@ -34,7 +34,7 @@ package_check <- lapply(packages, function(x) {
 # What's in the old PATH?
 # Sys.getenv("PATH")
 
-# Sys.setenv(PATH = paste(Sys.getenv("PATH"), 
+# Sys.setenv(PATH = paste(Sys.getenv("PATH"),
 #                         "C:\\RTools40",
 #                         "C:\\RTools40\\usr\\bin",
 #                         "C:\\RTools40\\mingw64\\bin",
@@ -42,7 +42,7 @@ package_check <- lapply(packages, function(x) {
 # Did it work (look at the end)?
 # Sys.getenv("PATH")
 
-# pkgbuild::find_rtools() 
+# pkgbuild::find_rtools()
 
 
 
@@ -55,18 +55,18 @@ package_check <- lapply(packages, function(x) {
 
 county_sf <- tigris::counties(state = "CO", year = 2019) %>%
   dplyr::rename_all(tolower) %>%
-  dplyr::filter(countyfp %in% c("001", "014")) %>% 
+  dplyr::filter(countyfp %in% c("001", "014")) %>%
   sf::st_transform(crs = 26953)
 
 
 # Student buffers ---------------------------------------------------------
 
-load_student <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds") 
+load_student <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds")
 
-student <- load_student %>% 
-  dplyr::filter(stringr::str_sub(GEOID,1,2) == "08") %>% 
-  dplyr::select(id_dao) %>% 
-  sf::st_transform(crs = 26953) 
+student <- load_student %>%
+  dplyr::filter(stringr::str_sub(GEOID,1,2) == "08") %>%
+  dplyr::select(id_dao) %>%
+  sf::st_transform(crs = 26953)
 
 # Euclidean buffer, epsg==26953
 student_e25 <- student %>% sf::st_buffer(dist = 25)
@@ -76,14 +76,14 @@ student_e4000 <- student %>% sf::st_buffer(dist = 4000)
 
 # School buffers ----------------------------------------------------------
 
-boundary_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_boundary_sf.rds") %>% 
-  sf::st_as_sf() %>% 
+boundary_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_boundary_sf.rds") %>%
+  sf::st_as_sf() %>%
   sf::st_transform(crs = 26953)
 
 # Euclidean buffer, epsg==26953
-school_e25 <- student %>% sf::st_buffer(dist = 25)
-school_e2000 <- student %>% sf::st_buffer(dist = 2000)
-school_e4000 <- student %>% sf::st_buffer(dist = 4000)
+school_e25 <- boundary_sf %>% sf::st_buffer(dist = 25)
+school_e2000 <- boundary_sf %>% sf::st_buffer(dist = 2000)
+school_e4000 <- boundary_sf %>% sf::st_buffer(dist = 4000)
 
 
 # Union the buffers -------------------------------------------------------
@@ -93,18 +93,18 @@ buffer_union <- sf::st_union(student_e4000, school_e4000) %>% sf::st_as_sf()
 # Boundary for green space data -------------------------------------------
 
 bbox <- base::matrix(as.numeric(c(sf::st_bbox(student_e4000), sf::st_bbox(school_e4000))),
-                     nrow = 2, byrow = TRUE) %>% 
-  apply(2,max) 
+                     nrow = 2, byrow = TRUE) %>%
+  apply(2,max)
 
 bbox_sf <- sf::st_sf(sf::st_as_sfc(sf::st_bbox(c(
   xmin = bbox[1],
   xmax = bbox[3],
   ymin = bbox[2],
-  ymax = bbox[4] 
-), crs = 26953))) %>% 
+  ymax = bbox[4]
+), crs = 26953))) %>%
   sf::st_transform(crs = 4326)
-# sf::st_write(bbox_sf, 
-#              "DATA/Processed/Aim2/aim2_bbox_e4000.shp", 
+# sf::st_write(bbox_sf,
+#              "DATA/Processed/Aim2/aim2_bbox_e4000.shp",
 #              driver = "ESRI Shapefile")
 # zip::zip(zipfile = "DATA/Processed/Aim2/aim2_bbox_e4000.zip",
 #          files = list.files(path = "DATA/Processed/Aim2", pattern = "aim2_bbox_e4000.*", full.names = TRUE),
@@ -117,7 +117,7 @@ bbox_sf %>% sf::st_bbox() %>% as.numeric()# %>% measurements::conv_unit(to = 'de
 
 # https://lpdaacsvc.cr.usgs.gov/appeears/
 # Time: 2015-01-01 to 2019-12-31
-# polygon of area sample: "DATA/Processed/Aim2/aim2_bbox_e4000.zip" 
+# polygon of area sample: "DATA/Processed/Aim2/aim2_bbox_e4000.zip"
 # Layers: Landsat 7 CONUS, SRB4 & SRB5
 # Projection: Native projection (Landsat ARD CONUS)
 
@@ -126,7 +126,7 @@ bbox_sf %>% sf::st_bbox() %>% as.numeric()# %>% measurements::conv_unit(to = 'de
 
 # https://lpdaacsvc.cr.usgs.gov/appeears/
 # Time: 2015-01-01 to 2019-12-31
-# polygon of area sample: "DATA/Processed/Aim2/aim2_bbox_e4000.zip" 
+# polygon of area sample: "DATA/Processed/Aim2/aim2_bbox_e4000.zip"
 # Layers: Landsat 8 CONUS, SRB4 & SRB5
 # Projection: Native projection (Landsat ARD CONUS)
 
@@ -135,8 +135,8 @@ bbox_sf %>% sf::st_bbox() %>% as.numeric()# %>% measurements::conv_unit(to = 'de
 
 # https://lpdaacsvc.cr.usgs.gov/appeears/
 # Time: 2015-01-01 to 2019-12-31
-# polygon of area sample: "DATA/Processed/Aim2/aim2_bbox_e4000.zip" 
-# Layers: Terra MODIS Vegetation Indices (NDVI & EVI), 
+# polygon of area sample: "DATA/Processed/Aim2/aim2_bbox_e4000.zip"
+# Layers: Terra MODIS Vegetation Indices (NDVI & EVI),
   # _250m_16_days_NDVI
 # Projection: Native projection (MODIS Sinusoidal)
 # MOD13Q1
@@ -144,12 +144,12 @@ bbox_sf %>% sf::st_bbox() %>% as.numeric()# %>% measurements::conv_unit(to = 'de
 
 # Download raw NLCD Tree Canopy data --------------------------------------
 
-# 2011 https://www.mrlc.gov/data/nlcd-2011-usfs-tree-canopy-cover-conus 
-# 2016 https://www.mrlc.gov/data/nlcd-2016-usfs-tree-canopy-cover-conus 
+# 2011 https://www.mrlc.gov/data/nlcd-2011-usfs-tree-canopy-cover-conus
+# 2016 https://www.mrlc.gov/data/nlcd-2016-usfs-tree-canopy-cover-conus
 
 
 
-  
+
 
 
 
@@ -164,9 +164,9 @@ hist(x)
 x <- x*0.0001
 
 # https://gis.stackexchange.com/questions/222291/extracting-mean-of-multiple-raster-layers-using-r
-f <- list.files("DATA/Raw/Aim2/MODIS/2021.11.30b", full.names = TRUE) 
-ras <- purrr::map(f[10], raster::raster) 
-stacked <- raster::stack(ras)   
+f <- list.files("DATA/Raw/Aim2/MODIS/2021.11.30b", full.names = TRUE)
+ras <- purrr::map(f[10], raster::raster)
+stacked <- raster::stack(ras)
 mean <- raster::stackApply(stacked, indices =  rep(1, raster::nlayers(stacked)), fun = "mean", na.rm = T)
 raster::writeRaster(x = mean, filename = "DATA/Processed/Aim2/mean.tif", driver = "GeoTiff")
 
@@ -253,8 +253,8 @@ plot(
 
 # We can visualize which pixels fall within each buffer. Looking at the next figure, one can ask why there are not always the same number of pixels in each buffer. The reason is that the arc of the circle must pass through the center of each pixel to be included in the buffer.
 
-r[poly] %>% 
-  sf::st_as_sf() %>% 
+r[poly] %>%
+  sf::st_as_sf() %>%
   ggplot2::ggplot() +
   ggplot2::geom_sf(ggplot2::aes(fill = factor(V1)), color = "#3c3c3c") +
   ggplot2::geom_sf(data = sf::st_sfc(poly), fill = NA, color = "blue") +
@@ -270,7 +270,7 @@ r[poly] %>%
 # Extracting pixel values covered by the polygons
 # Now that we have defined four buffers with a 30 meters radius, we could be tempted to re-use st_extract().
 
-stars::st_extract(r, poly) %>% sf::st_as_sf() 
+stars::st_extract(r, poly) %>% sf::st_as_sf()
 
 
 # To demonstrate it, we will increase the buffer radius to 90 meters. As seen in the next figure, two buffers are overlapping.

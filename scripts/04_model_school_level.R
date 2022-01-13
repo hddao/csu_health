@@ -159,7 +159,7 @@ combos <- tidyr::crossing(v = covar_simple,
                           g = 3:5) %>%
   tibble::rownames_to_column() %>%
   dplyr::mutate(multiple = stringr::str_detect(v, stringr::fixed("+")),
-                group = stringr::str_split(v, "_", 2) %>% map(extract2, 1) %>% as.character) %>%
+                group = stringr::str_split(v, "_", 2) %>% map(magrittr::extract2, 1) %>% as.character) %>%
   dplyr::mutate(name = dplyr::case_when(multiple == FALSE ~ v,
                                         multiple == TRUE ~ group))
 
@@ -260,6 +260,21 @@ anova(quantile_model, quantile_model_null)
 rcompanion::nagelkerke(quantile_model)
 rcompanion::accuracy(list(quantile_model))
 
+
+# TEST rfit
+
+
+
+model.r <- Rfit::rfit(math_mean ~ ses_edu_highschoolmore +
+                        ses_medianhhincome +
+                        ethnicity_asian +
+                        ieq_thermal +
+                        ieq_visual_cat +
+                        ieq_indoor_cat +
+                        ieq_acoustics
+                       , data = analysis)
+
+summary(model.r)
 
 
 

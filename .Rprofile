@@ -5,4 +5,4 @@ package_check <- lapply(packages, function(x) {
   library(x, character.only = TRUE)
 })
 
-rm(packages)
+rm(packages, package_check )
