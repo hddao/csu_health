@@ -26,6 +26,7 @@ tictoc::toc()
 boundary_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_boundary_sf.rds") %>%
   sf::st_as_sf() %>%
   dplyr::select(cdenumber) %>%
+  dplyr::filter(!is.na(cdenumber)) %>%
   sf::st_transform(crs = 26953)
 
 tictoc::tic("create_buffer_school")
