@@ -141,21 +141,25 @@ analysis %$% summary(ieq_visual_cat)
 get_pct_school_level <- function(dataset, varname, suffix) {
   df <- dataset %>%
     sf::st_drop_geometry() %>%
-    group_by(cdenumber, {{varname}}) %>%
-    summarise(count = n()) %>%
+    dplyr::group_by(cdenumber, {{varname}}) %>%
+    dplyr::summarise(count = dplyr::n()) %>%
     dplyr::filter(!is.na({{varname}})) %>%
-    mutate(prop = count / sum(count)) %>%
-    select(-count) %>%
+    dplyr::mutate(prop = count / sum(count)) %>%
+    dplyr::select(-count) %>%
     dplyr::mutate("{{varname}}" := paste0(suffix, {{varname}})) %>%
-    pivot_wider(names_from = {{varname}}, values_from = prop) %>%
+    tidyr::pivot_wider(names_from = {{varname}}, values_from = prop) %>%
     dplyr::mutate_all(tidyr::replace_na, 0)
 }
 
 analysis_school <- analysis %>%
   sf::st_drop_geometry() %>%
   dplyr::group_by(cdenumber, grade) %>%
-  summarise(math_mean = mean(mathscalescore, na.rm = TRUE),
-            ela_mean = mean(elascalescore, na.rm = TRUE )) %>%
+  dplyr::summarise(math_mean = mean(mathscalescore, na.rm = TRUE),
+            ela_mean = mean(elascalescore, na.rm = TRUE),
+            school_totaldaysmissed = mean(testscore_totaldaysmissed, na.rm = TRUE),
+            school_totalunexcuseddays = mean(testscore_totalunexcuseddays, na.rm = TRUE),
+            school_instructionday = mean(testscore_instructionday, na.rm = TRUE)
+            ) %>%
   # link to school-level variable
   dplyr::left_join(analysis %>%
                      sf::st_drop_geometry() %>%
@@ -174,8 +178,13 @@ analysis_school <- analysis %>%
   # Get school-level special ed proportion
   dplyr::left_join(get_pct_school_level(analysis, testscore_special_ed, "specialed_"),
                    by = "cdenumber") %>%
-  dplyr::rename_all(tolower)
+  dplyr::rename_all(tolower) %>%
+  dplyr::ungroup()
 
+
+
+
+# Get ses variables at school-level
 cdenumber_list <- analysis_school %>% dplyr::distinct(cdenumber) %$% as.vector(cdenumber)
 
 acs5yr <- tract %>%
@@ -215,6 +224,7 @@ acs5yr <- acs5yr %>%
                       B17001_049, B17001_050, B17001_051, B17001_052)) %>%
   # median hh income: B19013
   dplyr::mutate(ses_medianhhincome = B19013_001) %>%
+  dplyr::mutate(ses_medianhhincome_log10 = log10(ses_medianhhincome)) %>%
   # median family income: B19113
   dplyr::mutate(ses_medianfamincome = B19113_001) %>%
   # median family income with kids: B19125

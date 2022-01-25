@@ -1,4 +1,5 @@
-
+load_buffer_school <- readr::read_rds("DATA/Processed/Aim2/aim2_buffer_school.rds")
+load_buffer_student <- readr::read_rds("DATA/Processed/Aim2/aim2_buffer_student.rds") %>% sf::st_as_sf()
 
 # Extract NDVI from Landsat 8 .tar.gz files -------------------------------
 
@@ -26,16 +27,61 @@ tictoc::toc()
 
 
 
+# Get the list of landsat 8 files -----------------------------------------
+
+files <- list.files("U:/CSU EPA Health Study/csu_health/DATA/Processed/Aim2/Landsat 8/NDVI",
+                    pattern = "*.tif", full.names = TRUE) %>%
+  tibble::as_tibble() %>%
+  dplyr::rename(file_location = value) %>%
+  # get the file_name
+  dplyr::mutate(file_name = stringr::str_split(file_location, pattern = "/") %>%
+                  purrr::map_chr(dplyr::last)) %>%
+  # get WPS path row
+  dplyr::mutate(wrs_pathrow = stringr::str_split(file_name, pattern = "_") %>%
+                  purrr::map_chr(dplyr::nth, 3)) %>%
+  # get the date
+  dplyr::mutate(date = stringr::str_split(file_name, pattern = "_") %>%
+                  purrr::map_chr(dplyr::nth, 4) %>%
+                  lubridate::ymd()) %>%
+  # arrange by wrs pathrow & date
+  dplyr::arrange(wrs_pathrow, date)
+
+files %>% dplyr::count(wrs_pathrow)
 
 
+test <- files %>%
+  dplyr::filter(wrs_pathrow == "032033") %>%
+  as.character()
 
 
+test <- files %$% as.vector(file_location)
 
 
+# Stack Landsat 8 raster --------------------------------------------------
+# https://gis.stackexchange.com/questions/217082/handling-multiple-extent-problem-to-create-raster-stack-in-r
+# https://stackoverflow.com/questions/20733555/how-to-create-a-raster-brick-with-rasters-of-different-extents
 
 
+landsat_stack_raw <- raster::stack(test[1:100])
+
+landsat_stack <- landsat_stack_raw
 
 
+landsat_all <- purrr::map(test[1:10], raster::raster)
+
+raster::plot(landsat_all[[1]])
+
+landsat_all[[1]]
+landsat_all[[2]]
+landsat_all[[3]]
+
+
+raster::compareRaster(landsat_all[1:3])
+
+
+student_e4000_spatvector <- load_buffer_student[[1]] %>% sf::st_as_sf() %>% terra::vect()
+
+terra::plot()
 
 
 

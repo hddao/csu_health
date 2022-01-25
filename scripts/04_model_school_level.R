@@ -17,9 +17,9 @@ rm(list = ls())
 # The function `package.check` will check if each package is on the local machine.
 # If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
 # r load_packages
-packages <- c("tidyverse", "magrittr")
+packages <- c("magrittr", "quantreg")
 
-package_check <- lapply(packages, function(x) {
+lapply(packages, function(x) {
   if (!require(x, character.only = TRUE)) install.packages(x, dependencies = TRUE)
   library(x, character.only = TRUE)
 })
@@ -36,7 +36,7 @@ analysis <- load_analysis_school %>%
   dplyr::filter(grade %in% (c("30", "40", "50")))
 
 # Descriptive table
-table1_student <- skimr::skim(analysis %>% dplyr::select(tidyselect:::where(is.numeric))) %>%
+table1 <- skimr::skim(analysis %>% dplyr::select(tidyselect:::where(is.numeric))) %>%
   # dplyr::mutate_if(is.numeric, round, digits = 2) %>%
   dplyr::rename(covar = skim_variable) %>%
   dplyr::mutate(iqr = numeric.p75 - numeric.p25,
@@ -61,9 +61,34 @@ dat.corr <- analysis %>%
 
 # CHECK THE r VALUES
 corr.matrix <-  dat.corr %>% cor(use = "pairwise.complete.obs", method = "pearson")
-corr.matrix.melt <- arrange(reshape2::melt(as.matrix(corr.matrix)), -abs(value)) %>%
+corr.matrix.melt <- dplyr::arrange(reshape2::melt(as.matrix(corr.matrix)), -abs(value)) %>%
   dplyr::distinct() %>%
-  dplyr::filter(Var1 != Var2)
+  dplyr::filter(Var1 != Var2) %>%
+  dplyr::mutate(abs_value = abs(value))
+
+# openxlsx::write.xlsx(corr.matrix.melt, "outputs/aim1_schoolmodel_corrmatrixmelt.xlsx",
+                     # firstRow = TRUE)
+
+
+df <- corr.matrix.melt
+wb <- openxlsx::buildWorkbook(df)
+# conditional format p-value column
+openxlsx::conditionalFormatting(wb, "Sheet 1", cols = 4, rows = 1:nrow(df),
+                                rule = ">=0.80",
+                                style = openxlsx::createStyle(fontColour = "#006100", bgFill = "#C6EFCE"))
+# Autofit column width
+openxlsx::setColWidths(wb, "Sheet 1", cols = 1:ncol(df), widths = rep("auto", ncol(df)))
+# Add a data filter
+openxlsx::addFilter(wb, "Sheet 1", rows = 1, cols = 1:ncol(df))
+
+# save workbook
+openxlsx::saveWorkbook(wb, "outputs/aim1_schoolmodel_corrmatrixmelt.xlsx", TRUE)
+rm(df)
+
+
+
+
+
 
 # Remove by correlation
 # specialed_no_iep: r=1.00 with specialed_iep
@@ -78,9 +103,11 @@ corr.matrix.melt <- arrange(reshape2::melt(as.matrix(corr.matrix)), -abs(value))
 
 analysis <- analysis %>%
   # dplyr::select(-c(gender_m, specialed_no_iep, ethnicity_white, gifted_not_identified_as_gifted_talented,
-  #                  ses_medianfamincome, ses_medianfamincome_withkid, ses_married_less18))
+  #                  ses_medianfamincome, ses_medianfamincome_withkid))
   dplyr::select(-c(gender_m, specialed_no_iep,
-                   ses_medianfamincome, ses_medianfamincome_withkid, ses_married_less18))
+                   ses_medianfamincome, ses_medianfamincome_withkid))
+
+
 
 
 
@@ -127,115 +154,114 @@ covar_num <- vars_list %>%
   dplyr::arrange(varname) %$% as.vector(varname)
 
 
-# Resources ---------------------------------------------------------------
+# Resources - Model Dx ----------------------------------------------------
 # Model Dx
 # https://jhudatascience.org/tidyversecourse/model.html#model-diagnostics
 # http://www.sthda.com/english/articles/39-regression-model-diagnostics/161-linear-regression-assumptions-and-diagnostics-in-r-essentials/
 # https://rpubs.com/aryn999/LinearRegressionAssumptionsAndDiagnosticsInR
 
-# Model assumptions -------------------------------------------------------
+# # Model assumptions -------------------------------------------------------
+#
+# build_simple_linear_model <- function(varname, outcome, grade, ...){
+#     paste0(outcome, " ~ ", varname) %>%
+#     as.formula %>%
+#     stats::lm(data = analysis_grade[[grade-2]])
+# }
+#
+#
+# # Prepare COVAR_SIMPLE to run simple linear model
+# covar_ethnicity <- purrr::keep(covar, function(x) base::startsWith(x, prefix = "ethnicity")) %>%
+#   purrr::discard(~ .x == "ethnicity_white") %>%
+#   base::paste0(collapse = " + ")
+# covar_gifted <- purrr::keep(covar, function(x) base::startsWith(x, prefix = "gifted")) %>%
+#   purrr::discard(~ .x == "gifted_not_identified_as_gifted_talented") %>%
+#   base::paste0(collapse = " + ")
+#
+# covar_simple <- c(covar, covar_ethnicity, covar_gifted)
+#
+#
+# # Create all combinations for explanatory variables + outcome + grade
+# combos <- tidyr::crossing(v = covar_simple,
+#                           o = c("math_mean", "ela_mean"),
+#                           g = 3:5) %>%
+#   tibble::rownames_to_column() %>%
+#   dplyr::mutate(multiple = stringr::str_detect(v, stringr::fixed("+")),
+#                 group = stringr::str_split(v, "_", 2) %>% map(magrittr::extract2, 1) %>% as.character) %>%
+#   dplyr::mutate(name = dplyr::case_when(multiple == FALSE ~ v,
+#                                         multiple == TRUE ~ group))
+#
+# test <- stringr::str_split(combos$v, "_", 2) %>% map(extract2, 1) %>% as.character
+#
+#
+# # Get multivariable model results
+# simple_linear_model <- purrr::pmap(combos, build_simple_linear_model)
+#
+#
+# # Get model augment values
+# simple_linear_augment <- simple_linear_model %>%
+#   purrr::map(broomExtra::augment)
+#
+#
+# # Model assumptions & dx
+#
+# create_dx_plots <- function(model_num){
+#   model <- combos[combos$rowname == model_num, ]
+#   outcome <- model %$% as.character(o)
+#   grade <- model %$% as.numeric(g)
+#   name <- model %$% as.character(name)
+#   grDevices::jpeg(filename = paste("outputs/figures/school_simple_dx",
+#                                     name, outcome, grade, ".jpg",
+#                                     sep = "_"),
+#                   width = 1500,
+#                   height = 1000,
+#                   unit = "px",
+#                   pointsize = 18)
+#   graphics::par(mfrow = c(2, 3), oma = c(0, 0, 2, 0))
+#   graphics::plot(simple_linear_model[[model_num]], sub = "")
+#   graphics::hist(simple_linear_augment[[model_num]] %$% as.vector(.resid), main = "", xlab = ".resid")
+#   graphics::plot(simple_linear_augment[[model_num]][ ,1:2])
+#   title(paste0("Grade ", grade, " - ", outcome, " - ", name),
+#         outer = TRUE)
+#
+#   grDevices::dev.off()
+#
+# }
+#
+# # Run loop to save the dx plots
+# for(i in 1:nrow(combos)) {create_dx_plots(i)}
+#
+#
+#
+# # Get model performance & coefficients
+# simple_linear_perf <- simple_linear_model %>%
+#   purrr::map(broomExtra::glance_performance) %>%
+#   purrr::map_df(dplyr::bind_rows) %>%
+#   dplyr::bind_cols(combos)
+#
+#
+# simple_linear_coeff <- simple_linear_model %>%
+#   purrr::map(broomExtra::tidy_parameters) %>%
+#   purrr::map_df(dplyr::bind_rows, .id = "rowname") %>%
+#   dplyr::left_join(combos ,
+#                    by = "rowname") %>%
+#   dplyr::left_join(table1_student %>% dplyr::select(covar, iqr, range) %>%
+#                      dplyr::rename(term = covar),
+#                    by = "term") %>%
+#   dplyr::left_join(outcome_sd %>% dplyr::select(o, outcome_sd, g),
+#                    by = c("o", "g")) %>%
+#   dplyr::mutate(effect_iqr = estimate * iqr,
+#                 effect_range = estimate * range) %>%
+#   dplyr::mutate(effect_iqr_sd = (effect_iqr >= outcome_sd),
+#                 effect_range_sd = (effect_range >= outcome_sd))
+#
+# simple_linear_list <- list(simple_linear_coeff, simple_linear_perf)
+#
+# openxlsx::write.xlsx(simple_linear_list, "outputs/simple_linear.xlsx",
+#                      firstRow = TRUE,
+#                      overwrite = TRUE)
 
-build_simple_linear_model <- function(varname, outcome, grade, ...){
-    paste0(outcome, " ~ ", varname) %>%
-    as.formula %>%
-    stats::lm(data = analysis_grade[[grade-2]])
-}
 
-
-# Prepare COVAR_SIMPLE to run simple linear model
-covar_ethnicity <- purrr::keep(covar, function(x) base::startsWith(x, prefix = "ethnicity")) %>%
-  purrr::discard(~ .x == "ethnicity_white") %>%
-  base::paste0(collapse = " + ")
-covar_gifted <- purrr::keep(covar, function(x) base::startsWith(x, prefix = "gifted")) %>%
-  purrr::discard(~ .x == "gifted_not_identified_as_gifted_talented") %>%
-  base::paste0(collapse = " + ")
-
-covar_simple <- c(covar, covar_ethnicity, covar_gifted)
-
-
-# Create all combinations for explanatory variables + outcome + grade
-combos <- tidyr::crossing(v = covar_simple,
-                          o = c("math_mean", "ela_mean"),
-                          g = 3:5) %>%
-  tibble::rownames_to_column() %>%
-  dplyr::mutate(multiple = stringr::str_detect(v, stringr::fixed("+")),
-                group = stringr::str_split(v, "_", 2) %>% map(magrittr::extract2, 1) %>% as.character) %>%
-  dplyr::mutate(name = dplyr::case_when(multiple == FALSE ~ v,
-                                        multiple == TRUE ~ group))
-
-test <- stringr::str_split(combos$v, "_", 2) %>% map(extract2, 1) %>% as.character
-
-
-
-# Get multivariable model results
-simple_linear_model <- purrr::pmap(combos, build_simple_linear_model)
-
-
-# Get model augment values
-simple_linear_augment <- simple_linear_model %>%
-  purrr::map(broomExtra::augment)
-
-
-# Model assumptions & dx
-
-create_dx_plots <- function(model_num){
-  model <- combos[combos$rowname == model_num, ]
-  outcome <- model %$% as.character(o)
-  grade <- model %$% as.numeric(g)
-  name <- model %$% as.character(name)
-  grDevices::jpeg(filename = paste("outputs/figures/school_simple_dx",
-                                    name, outcome, grade, ".jpg",
-                                    sep = "_"),
-                  width = 1500,
-                  height = 1000,
-                  unit = "px",
-                  pointsize = 18)
-  graphics::par(mfrow = c(2, 3), oma = c(0, 0, 2, 0))
-  graphics::plot(simple_linear_model[[model_num]], sub = "")
-  graphics::hist(simple_linear_augment[[model_num]] %$% as.vector(.resid), main = "", xlab = ".resid")
-  graphics::plot(simple_linear_augment[[model_num]][ ,1:2])
-  title(paste0("Grade ", grade, " - ", outcome, " - ", name),
-        outer = TRUE)
-
-  grDevices::dev.off()
-
-}
-
-# Run loop to save the dx plots
-for(i in 1:nrow(combos)) {create_dx_plots(i)}
-
-
-
-# Get model performance & coefficients
-simple_linear_perf <- simple_linear_model %>%
-  purrr::map(broomExtra::glance_performance) %>%
-  purrr::map_df(dplyr::bind_rows) %>%
-  dplyr::bind_cols(combos)
-
-
-simple_linear_coeff <- simple_linear_model %>%
-  purrr::map(broomExtra::tidy_parameters) %>%
-  purrr::map_df(dplyr::bind_rows, .id = "rowname") %>%
-  dplyr::left_join(combos ,
-                   by = "rowname") %>%
-  dplyr::left_join(table1_student %>% dplyr::select(covar, iqr, range) %>%
-                     dplyr::rename(term = covar),
-                   by = "term") %>%
-  dplyr::left_join(outcome_sd %>% dplyr::select(o, outcome_sd, g),
-                   by = c("o", "g")) %>%
-  dplyr::mutate(effect_iqr = estimate * iqr,
-                effect_range = estimate * range) %>%
-  dplyr::mutate(effect_iqr_sd = (effect_iqr >= outcome_sd),
-                effect_range_sd = (effect_range >= outcome_sd))
-
-simple_linear_list <- list(simple_linear_coeff, simple_linear_perf)
-
-openxlsx::write.xlsx(simple_linear_list, "outputs/simple_linear.xlsx",
-                     firstRow = TRUE,
-                     overwrite = TRUE)
-
-
-# Resources ---------------------------------------------------------------
+# Resources - Nonparametric & quantile regression ------------------------
 # Nonparametric
 # https://rcompanion.org/handbook/F_12.html
 
@@ -246,35 +272,256 @@ openxlsx::write.xlsx(simple_linear_list, "outputs/simple_linear.xlsx",
 # https://data.library.virginia.edu/getting-started-with-quantile-regression/
 
 
-# Quantile regression
-quantile_model <- quantreg::rq(ela_mean ~ ieq_visual,
-             data = analysis_grade[[5-2]],
-             tau = 0.5)
-summary(quantile_model)
 
-quantile_model_null <- quantreg::rq(ela_mean ~ 1,
-                data = analysis_grade[[5-2]],
-                tau = 0.5)
-anova(quantile_model, quantile_model_null)
+# Quantile regression -----------------------------------------------------
 
-rcompanion::nagelkerke(quantile_model)
-rcompanion::accuracy(list(quantile_model))
+# https://rcompanion.org/handbook/F_12.html
+
+# While traditional linear regression models the conditional mean of the dependent variable, quantile regression models the conditional median or other quantile. Medians are most common, but for example, if the factors predicting the highest values of the dependent variable are to be investigated, a 95th percentile could be used.  Likewise, models for several quantiles, e.g. 25th , 50th, 75th percentiles, could be investigated simultaneously.
+# Quantile regression makes no assumptions about the distribution of the underlying data, and is robust to outliers in the dependent variable.  It does assume the dependent variable is continuous.  However, there are functions for other types of dependent variables in the qtools package.  The model assumes that the terms are linearly related. Quantile regression is sometimes considered “semiparametric”.
+# Quantile regression is very flexible in the number and types of independent variables that can be added to the model.  The example, here, however, confines itself to a simple case with one independent variable and one dependent variable.
+
+# Create all combinations for explanatory variables + outcome + dataset_grade
+analysis_grade_df <- analysis_grade %>%
+  as.data.frame() %>%
+  tibble::as_tibble() %>%
+  dplyr::rename(dataset = 1)
+combos <- tidyr::crossing(v = covar,
+                          o = c("math_mean", "ela_mean"),
+                          dataset = analysis_grade_df$dataset)
 
 
-# TEST rfit
+# Create a function to build quantile regression model
+build_quantile_model_50 <- function(v, o, dataset){
+  v %>%
+    base::paste0(o, " ~ ",.) %>%
+    stats::as.formula() %>%
+    rq(data = dataset, tau = 0.5)
+}
 
 
 
-model.r <- Rfit::rfit(math_mean ~ ses_edu_highschoolmore +
-                        ses_medianhhincome +
-                        ethnicity_asian +
-                        ieq_thermal +
-                        ieq_visual_cat +
-                        ieq_indoor_cat +
-                        ieq_acoustics
-                       , data = analysis)
+# Build quantile model
+quantile_model <- purrr::pmap(combos, build_quantile_model_50)
 
-summary(model.r)
+# Edit dataset combos to include model id & grade
+combos_edit <- combos %>%
+  tibble::rownames_to_column() %>%
+  dplyr::bind_cols(g = rep(c(3, 4, 5), times = length(quantile_model)/3)) %>%
+  dplyr::select(-dataset)
+
+# Get model coefficients
+quantile_coeff <- quantile_model %>%
+  purrr::map(broomExtra::tidy_parameters) %>%
+  purrr::map_df(dplyr::bind_rows, .id = "rowname") %>%
+  dplyr::left_join(combos_edit ,
+                   by = "rowname") %>%
+  dplyr::left_join(table1 %>% dplyr::select(covar, iqr, range) %>%
+                     dplyr::rename(term = covar),
+                   by = "term") %>%
+  dplyr::left_join(outcome_sd %>% dplyr::select(o, outcome_sd, g),
+                   by = c("o", "g")) %>%
+  dplyr::mutate(effect_iqr = estimate * iqr,
+                effect_range = estimate * range) %>%
+  dplyr::mutate(effect_iqr_sd = (abs(effect_iqr) >= outcome_sd),
+                effect_range_sd = (abs(effect_range) >= outcome_sd))
+
+
+
+# Efron’s pseudo r-squared
+quantile_r2 <- purrr::map_df(quantile_model, function(x){rcompanion::accuracy(list(x)) %>% purrr::pluck(2)}) %>%
+  tibble::rownames_to_column() %>%
+  dplyr::left_join(combos_edit, by = "rowname")
+
+# Prepare & Export
+test <- quantile_coeff %>%
+  dplyr::left_join(quantile_r2 %>% dplyr::select(rowname, Efron.r.squared),
+                   by = "rowname")
+quantile_coeff_edit <- test %>%
+  dplyr::left_join(test %>%
+                     dplyr::group_by(v) %>%
+                     dplyr::summarise(mean_r = mean(Efron.r.squared, na.rm = TRUE)),
+                   by = "v")
+rm(test)
+
+
+
+# quantile_list <- list(quantile_coeff_edit, quantile_r2)
+# openxlsx::write.xlsx(quantile_list, "outputs/quantile.xlsx",
+                     # firstRow = TRUE)
+
+
+# Create excel file for review
+df <- quantile_coeff_edit
+
+col_pvalue <- which(colnames(df)=="p.value")
+col_effect <- which(colnames(df)=="effect_iqr_sd")
+
+wb <- openxlsx::buildWorkbook(df %>% dplyr::arrange(v, o, g))
+# conditional format p-value column
+openxlsx::conditionalFormatting(wb, "Sheet 1", cols = col_pvalue, rows = 1:nrow(df),
+                                  rule = "<0.05",
+                                  style = openxlsx::createStyle(fontColour = "#006100", bgFill = "#C6EFCE"))
+# condional format effect>sd columns
+openxlsx::conditionalFormatting(wb, "Sheet 1", cols = col_effect:(col_effect+1), rows = 1:nrow(df),
+                                rule = "TRUE",
+                                style = openxlsx::createStyle(fontColour = "#006100", bgFill = "#C6EFCE"),
+                                type = "contains")
+# Autofit column width
+openxlsx::setColWidths(wb, "Sheet 1", cols = 1:ncol(df), widths = rep("auto", ncol(df)))
+# hide column rowname
+openxlsx::setColWidths(wb, "Sheet 1", cols = 1,
+                       widths = 8.43, hidden = TRUE)
+# Add a data filter
+openxlsx::addFilter(wb, "Sheet 1", rows = 1, cols = 1:ncol(df))
+
+# save workbook
+openxlsx::saveWorkbook(wb, "outputs/quantile.xlsx", TRUE)
+
+# Quantile - Multiple variables -------------------------------------------
+
+
+
+covar_multivar <- c(
+  # "ses_edu_highschoolmore",
+  # "ses_medianhhincome_log10",
+  # "ethnicity_african_american",
+  # "ethnicity_asian",
+  # "ethnicity_hispanic",
+  # "ethnicity_native_american",
+  # "ethnicity_pacific_islander",
+  # "ethnicity_two_or_more",
+  # "ethnicity_white",
+  # "gender_f",
+  # "gifted_both",
+  # "gifted_ela",
+  # # "gifted_math",
+  # "gifted_not_identified_as_gifted_talented",
+  # # "gifted_others",
+  # "specialed_iep",
+  # "school_totalunexcuseddays",
+  # "school_totaldaysmissed",
+  # "school_pct_frl_avg"
+  # "school_student_enrollment_avg"
+  # "ieq_thermal",
+  # "ieq_acoustics"
+  # "ieq_visual_cat",
+  # "ieq_indoor_cat"
+)
+
+covar_multivar <- c(
+  "school_pct_frl_avg",
+  "ethnicity_asian",
+  "specialed_iep",
+  # "ses_medianhhincome_log10"
+  # "ethnicity_two_or_more"
+  # "ses_poverty_6to17"
+  # "school_student_enrollment_avg"
+  # "ieq_thermal"
+  # "ieq_acoustics"
+  # "ieq_visual",
+  "ieq_indoor"
+)
+
+
+
+# Create all combinations for explanatory variables + outcome + grade
+combos <- tidyr::crossing(v = covar_multivar %>% paste0(collapse = " + "),
+                          o = c("math_mean", "ela_mean"),
+                          dataset = analysis_grade_df$dataset)
+
+
+# Build quantile model
+quantile_multi_model <- purrr::pmap(combos, build_quantile_model_50)
+
+
+
+
+stargazer::stargazer(quantile_multi_model,
+                     rq.se = "boot",
+                     column.labels = rep(c("Grade 3", "Grade 4", "Grade 5"), times = 2),
+                     # covariate.labels = ,
+                     dep.var.labels = c("ELA", "Math"),
+                     # omit = c("Constant"),
+                     model.numbers = FALSE,
+                     model.names =  FALSE,
+                     # keep.stat = c('n'),
+                     type ='text',
+                     style = "default",
+                     summary = TRUE)
+
+
+# Efron’s pseudo r-squared
+quantile_multi_r2 <- purrr::map_df(quantile_multi_model, function(x){rcompanion::accuracy(list(x)) %>% purrr::pluck(2)}) %>%
+  tibble::rownames_to_column() #%>%
+  # dplyr::left_join(combos_edit, by = "rowname")
+
+
+
+# https://lachlandeer.github.io/post/quantile-regression-with-tidyverse/
+
+# Estimating One Quantile Regression
+# Quantile regression is going to allow our model to have different average effects along the distribution of the dependent variable (in our case ltotexp). quantreg’s rq() function will allow us to estimate these regressions. If we are interested in the model around one quantile, for example around the median, we can estimate the model as follows:
+
+quant_reg <- quantreg::rq(ela_mean ~ ieq_visual,
+                          data = analysis_grade[[5-2]],
+                          tau = 0.5
+                          )
+
+summary(quant_reg)
+
+# Estimating Multiple Quantiles
+# Typically we aren’t only interested in estimating a quantile regression around one point in the distribution, but instead across multiple quantiles. We can to this by creating a vector with the quantiles we are interested in and then estimate the model for each quantile. We are going to do this using purrr’s map() function:
+# Since we want to use the function `stargazer::stargazer` later, we have to load the library `quantreg` and run `quantreg::rq()` without referring to the package, so only `rq()`
+quants <- c(0.1, 0.25, 0.5, 0.75, 0.9)
+qr_res <- purrr::map(quants, ~rq(ela_mean ~ ieq_visual,
+                          data = analysis_grade[[5-2]],
+                          tau = 0.5)
+              )
+
+
+# The above snippet says that for each element of the vector quants estimate the quantile regression using each element as the tau value (i.e. quantile of interest).1 The output of the map command is a list:
+typeof(qr_res)
+
+# There’s 5 elements to of the list:
+length(qr_res)
+
+# Each element is the output of a quantile regression, one for each of the quantiles we wanted. For example:
+summary(qr_res[[1]])
+
+# And:
+summary(qr_res[[3]])
+
+
+# Summarising Regression Output
+# Now that we have the results in hand we want to present them in a readable way. We are going to look at two ways - a regression table and a coefficient plot.
+
+# The Regression Table
+# We are going to use stargazer to produce the estimates table.2 We want the OLS results alongside the quantile regression estimates so we pass these across as the first two arguments (stargazer will unpack the list of models inside qr_res for us). We must specify how we want the standard errors of the quantile regression to be computed (or accept a default), we’ve gone with bootstrapped standard errors. The rest of the lines arguments tidy up the table a little. type = 'text' prints the resulting table as plain text, switch to ‘latex’ if you want to put the table in a LaTex or Markdown document.
+
+stargazer::stargazer(qr_res,
+                     rq.se = "boot",
+                     column.labels = c(paste("tau = ", quants)),
+                     # covariate.labels = c("Supplementary Insurance == 1",
+                     #                      "# Chronic Health Conditions",
+                     #                      "Age",
+                     #                      "Female",
+                     #                      "White"),
+                     dep.var.labels = "test scores",
+                     # omit = c("Constant"),
+                     model.numbers = FALSE,
+                     model.names =  FALSE,
+                     # keep.stat = c('n'),
+                     type ='html',
+                     style = "default",
+                     summary = TRUE,
+                     out = "outputs/test.html")
+
+
+summary(qr_res[[1]])
+
+
+
 
 
 
