@@ -411,15 +411,22 @@ covar_multivar <- c(
 
 covar_multivar <- c(
   "school_pct_frl_avg",
+  "ethnicity_african_american",
   "ethnicity_asian",
+  "ethnicity_hispanic",
+  # "ethnicity_native_american",
+  "ethnicity_two_or_more",
+  # "ethnicity_pacific_islander",
+  # "ethnicity_others1",
+  "ethnicity_others2",
+  # "ethnicity_white",
   "specialed_iep",
-  # "ses_medianhhincome_log10"
-  # "ethnicity_two_or_more"
-  # "ses_poverty_6to17"
+  # "ses_medianhhincome_log10",
+  # "ses_poverty_6to17",
   # "school_student_enrollment_avg"
   # "ieq_thermal"
   # "ieq_acoustics"
-  # "ieq_visual",
+  # "ieq_visual"
   "ieq_indoor"
 )
 
@@ -445,16 +452,148 @@ stargazer::stargazer(quantile_multi_model,
                      # omit = c("Constant"),
                      model.numbers = FALSE,
                      model.names =  FALSE,
-                     # keep.stat = c('n'),
+                     keep.stat = c('n'),
                      type ='text',
                      style = "default",
+                     # out = "outputs/tables/Aim1/school_model_ieq_indoor.html",
                      summary = TRUE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Edit dataset combos to include model id & grade
+combos_edit <- combos %>%
+  tibble::rownames_to_column() %>%
+  dplyr::bind_cols(g = rep(c(3, 4, 5), times = length(quantile_multi_model)/3)) %>%
+  dplyr::select(-dataset)
+
+# Get model coefficients
+quantile_multi_coeff <- quantile_multi_model %>%
+  purrr::map(broomExtra::tidy_parameters) %>%
+  purrr::map_df(dplyr::bind_rows, .id = "rowname") %>%
+  dplyr::left_join(combos_edit ,
+                   by = "rowname") %>%
+  dplyr::left_join(table1 %>% dplyr::select(covar, iqr, range) %>%
+                     dplyr::rename(term = covar),
+                   by = "term") %>%
+  dplyr::left_join(outcome_sd %>% dplyr::select(o, outcome_sd, g),
+                   by = c("o", "g")) %>%
+  dplyr::mutate(effect_iqr = estimate * iqr,
+                effect_range = estimate * range) %>%
+  dplyr::mutate(effect_iqr_sd = (abs(effect_iqr) >= outcome_sd),
+                effect_range_sd = (abs(effect_range) >= outcome_sd))
+
 
 
 # Efron’s pseudo r-squared
 quantile_multi_r2 <- purrr::map_df(quantile_multi_model, function(x){rcompanion::accuracy(list(x)) %>% purrr::pluck(2)}) %>%
-  tibble::rownames_to_column() #%>%
-  # dplyr::left_join(combos_edit, by = "rowname")
+  tibble::rownames_to_column() %>%
+  dplyr::left_join(combos_edit, by = "rowname")
+
+# Prepare & Export
+test <- quantile_multi_coeff %>%
+  dplyr::left_join(quantile_multi_r2 %>% dplyr::select(rowname, Efron.r.squared),
+                   by = "rowname")
+quantile_multi_coeff_edit <- test %>%
+  dplyr::left_join(test %>%
+                     dplyr::group_by(v) %>%
+                     dplyr::summarise(mean_r = mean(Efron.r.squared, na.rm = TRUE)),
+                   by = "v")
+rm(test)
+
+
+# Create a table with only variable passing the test
+test <- quantile_multi_coeff_edit %>%
+  dplyr::filter(term != "(Intercept)") %>%
+  dplyr::mutate(effect_range_sd_num = dplyr::case_when(effect_range_sd  ~1,
+                                                       !effect_range_sd ~0),
+                effect_iqr_sd_num = dplyr::case_when(effect_iqr_sd  ~1,
+                                                     !effect_iqr_sd ~0))
+test1a <- test %>%
+  dplyr::select(rowname, term, effect_range_sd_num) %>%
+  tidyr::pivot_wider(names_from = rowname, values_from = effect_range_sd_num)
+test1b <- test %>%
+  dplyr::select(rowname, term, effect_iqr_sd_num) %>%
+  tidyr::pivot_wider(names_from = rowname, values_from = effect_iqr_sd_num)
+test2 <- dplyr::bind_rows(test1a, test1b) %>%
+  dplyr::group_by(term) %>%
+  dplyr::summarise_all(.funs = base::sum)
+
+quantile_multi_coeff_effect <- covar_multivar %>%
+  tibble::as_tibble() %>%
+  dplyr::rename(term = value) %>%
+  dplyr::left_join(test2, by = "term")
+rm(test, test1a, test1b, test2)
+
+write.csv(quantile_multi_coeff_effect, "outputs/tables/Aim1/school_model_effect_ieq_indoor.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Create excel file for review
+df <- quantile_multi_coeff_edit
+
+col_pvalue <- which(colnames(df)=="p.value")
+col_effect <- which(colnames(df)=="effect_iqr_sd")
+
+wb <- openxlsx::buildWorkbook(df %>% dplyr::arrange(v, o, g))
+# conditional format p-value column
+openxlsx::conditionalFormatting(wb, "Sheet 1", cols = col_pvalue, rows = 1:nrow(df),
+                                rule = "<0.05",
+                                style = openxlsx::createStyle(fontColour = "#006100", bgFill = "#C6EFCE"))
+# condional format effect>sd columns
+openxlsx::conditionalFormatting(wb, "Sheet 1", cols = col_effect:(col_effect+1), rows = 1:nrow(df),
+                                rule = "TRUE",
+                                style = openxlsx::createStyle(fontColour = "#006100", bgFill = "#C6EFCE"),
+                                type = "contains")
+# Autofit column width
+openxlsx::setColWidths(wb, "Sheet 1", cols = 1:ncol(df), widths = rep("auto", ncol(df)))
+# hide column rowname
+openxlsx::setColWidths(wb, "Sheet 1", cols = 1,
+                       widths = 8.43, hidden = TRUE)
+# Add a data filter
+openxlsx::addFilter(wb, "Sheet 1", rows = 1, cols = 1:ncol(df))
+
+# save workbook
+openxlsx::saveWorkbook(wb, "outputs/quantile_multi.xlsx", TRUE)
+
+
+
+
+
 
 
 

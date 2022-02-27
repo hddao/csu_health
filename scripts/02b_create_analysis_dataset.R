@@ -54,6 +54,9 @@ analysis <- dat %>%
                    "ses_medianfamincome_withkid", # r=0.9330676 with ses_medianhhincome
                    "ses_married_less18" # r=0.9157791 with ses_married_6to17
   )) %>%
+  # Clean variable gender
+  dplyr::mutate(testscore_gender = dplyr::recode(testscore_gender, "M"="Male")) %>%
+  dplyr::mutate(testscore_gender = dplyr::recode(testscore_gender, "F"="Female")) %>%
   # Clean ses variables
   # log10 for ses_medianhhincome
   dplyr::mutate(ses_medianhhincome_log10 = log10(ses_medianhhincome)) %>%
@@ -64,7 +67,7 @@ analysis <- dat %>%
   dplyr::mutate(testscore_ethnicity = forcats::fct_relevel(testscore_ethnicity, "White"),
                 testscore_gifted = forcats::fct_relevel(testscore_gifted, "Not Identified as Gifted/Talented"),
                 testscore_special_ed = forcats::fct_relevel(testscore_special_ed, "No IEP"),
-                testscore_gender = forcats::fct_relevel(testscore_gender, "M")) %>%
+                testscore_gender = forcats::fct_relevel(testscore_gender, "Male")) %>%
   # Categorize variables
   dplyr::mutate(ses_crowding_cat = dplyr::case_when(0 <= ses_crowding & ses_crowding <= 0.5 ~ "1",
                                                     0.5 < ses_crowding & ses_crowding <= 2  ~ "2",
@@ -130,7 +133,6 @@ analysis <- dat %>%
                   !is.na(ieq_acoustics) & !is.na(ieq_thermal))
 
 
-
 analysis %$% summary(school_student_enrollment_avg_cat)
 analysis %$% summary(ieq_indoor_cat)
 analysis %$% summary(ieq_visual_cat)
@@ -179,6 +181,10 @@ analysis_school <- analysis %>%
   dplyr::left_join(get_pct_school_level(analysis, testscore_special_ed, "specialed_"),
                    by = "cdenumber") %>%
   dplyr::rename_all(tolower) %>%
+  janitor::clean_names() %>%
+  # Combine ethnicity variables
+  dplyr::mutate(ethnicity_others1 = ethnicity_pacific_islander + ethnicity_native_american + ethnicity_two_or_more,
+                ethnicity_others2 = ethnicity_pacific_islander + ethnicity_native_american) %>%
   dplyr::ungroup()
 
 
@@ -257,6 +263,29 @@ analysis_school <- analysis_school %>% dplyr::left_join(acs5yr_ses, by = "cdenum
 analysis_school <- analysis_school %>% janitor::clean_names()
 
 
+# Create a variable list -------------------------------------------------
+analysis_varlist <- purrr::map_df(analysis, class) %>% t %>% tibble::as_tibble(rownames = NA) %>% tibble::rownames_to_column() %>%
+  dplyr::rename(varname = rowname, varclass = V1) %>%
+  dplyr::mutate(vartype = dplyr::case_when(
+    varname %in% c("id_dao", "cdenumber", "studentkey", "GEOID") ~ "id",
+    endsWith(varname, suffix = "scalescore") ~ "score",
+    startsWith(varname, prefix = "testscore_") ~ "student",
+    startsWith(varname, prefix = "school_") ~ "school",
+    startsWith(varname, prefix = "ieq_") ~ "ieq",
+    startsWith(varname, prefix = "ses_") ~ "ses",
+    startsWith(varname, prefix = "i") ~ "index",
+    # varname %in% c("i1", "i2", "i3", "i4") ~ "index",
+    # varname %in% c() ~ "",
+    # varname %in% c() ~ "",
+    TRUE ~ ""
+  ))
+
+
+table1_st <- analysis %>%
+  dplyr::mutate_at(c("cdenumber", "studentkey", "GEOID"),
+                   as.character) %>%
+  vtable::st(out = "csv")
+
 # Save to disk ------------------------------------------------------------
 save_data <- function(dataset.name, file.location, file.location.arc){
   readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
@@ -264,6 +293,33 @@ save_data <- function(dataset.name, file.location, file.location.arc){
   saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
   saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
 }
+
+save_data_sas <- function(dataset.name, file.location, file.location.arc){
+  dataset.name %<>% dplyr::mutate(dplyr::across(where(is.factor), as.character))
+  foreign::write.foreign(dataset.name,
+                         datafile = paste0(file.location, ".txt"),
+                         codefile = paste0(file.location, ".sas"),
+                         package = "SAS") # Save SAS
+  foreign::write.foreign(dataset.name,
+                         datafile = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".txt"),
+                         codefile = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".sas"),
+                         package = "SAS") # Archived SAS
+}
+
+save_data_xlsx <- function(dataset.name, file.location, file.location.arc) {
+  openxlsx::write.xlsx(dataset.name,paste0(file.location, ".xlsx")) #Save XLSX
+  openxlsx::write.xlsx(dataset.name,paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".xlsx")) #Archived XLSX
+}
+
+
 save_data(analysis, "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis")
+save_data_sas(analysis %>% sf::st_drop_geometry(),
+              "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis")
+save_data_xlsx(analysis %>% sf::st_drop_geometry(),
+               "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis")
+
+save_data(analysis_varlist, "DATA/Processed/Aim1/aim1_analysis_varlist", "DATA/Processed/Aim1/Archived/aim1_analysis_varlist")
+
+
 save_data(analysis_school, "DATA/Processed/Aim1/aim1_analysis_school", "DATA/Processed/Aim1/Archived/aim1_analysis_school")
 save_data(acs5yr, "DATA/Processed/Aim1/aim1_ses_by_cdenumber", "DATA/Processed/Aim1/Archived/aim1_analysis_by_cdenumber")

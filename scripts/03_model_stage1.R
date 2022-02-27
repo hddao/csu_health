@@ -349,8 +349,9 @@ covar_multivar <- c(
                     "ieq_indoor_cat"
 
                     )
+
 covar_multivar <- c(
-  "ses_edu_highschoolmore",
+  # "ses_edu_highschoolmore",
   "ses_medianhhincome_log10",
   "testscore_ethnicity",
   "testscore_gender",
@@ -359,11 +360,11 @@ covar_multivar <- c(
   "testscore_totalunexcuseddays_cat",
   "testscore_totaldaysmissed",
   "school_pct_frl_avg",
-  "school_student_enrollment_avg_cat",
-  "ieq_thermal",
-  "ieq_acoustics",
-  "ieq_visual_cat",
-  "ieq_indoor_cat"
+  # "school_student_enrollment_avg_cat"
+  # "ieq_thermal"
+  # "ieq_acoustics"
+  "ieq_visual_cat"
+  # "ieq_indoor_cat"
 )
 
 # Create all combinations for explanatory variables + outcome + grade
@@ -388,11 +389,22 @@ multivar_coeff <- purrr::pmap(combos, get_multivariable_coeff) %>%
 multivar_list <- list(multivar_coeff, multivar_perf)
 
 
-openxlsx::write.xlsx(multivar_list, "outputs/multivar_list_GEOID_ses_student_school_ieq1.xlsx",
+openxlsx::write.xlsx(multivar_list, "outputs/tables/Aim1/student_model_ses_student_school_ieq_visual.xlsx",
                      firstRow = TRUE,
                      overwrite = TRUE)
 
-
+stargazer::stargazer(multivar_model[c(2,5,6,8,11,12)],
+                     column.labels = rep(c("Grade 5", "Grade 8", "Grade 9"), times = 2),
+                     # covariate.labels = ,
+                     dep.var.labels = c("ELA", "Math"),
+                     # omit = c("Constant"),
+                     model.numbers = FALSE,
+                     model.names =  FALSE,
+                     keep.stat = c('n'),
+                     type ='html',
+                     style = "default",
+                     out = "outputs/tables/Aim1/student_model_ses_student_school_ieq_visual.html",
+                     summary = TRUE)
 
 
 
