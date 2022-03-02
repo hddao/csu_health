@@ -1,10 +1,13 @@
 
+rm(list = ls())
+
+
+# Load data ---------------------------------------------------------------
+load_student <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds")
 buffer <- tibble::tibble(distance = c(25, 50, 100, 250, 500, 1000, 2000, 4000))
 
 
 # Create student buffer ---------------------------------------------------
-
-load_student <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds")
 
 student <- load_student %>%
   dplyr::filter(stringr::str_sub(GEOID,1,2) == "08") %>%
@@ -19,6 +22,43 @@ buffer_student <-  purrr::pmap(buffer,
                                  })
 tictoc::toc()
 
+
+# Get a list of only distinct student, n = 37295
+distinct_student <- load_student %>%
+  dplyr::distinct(studentkey, .keep_all = TRUE) %>%
+  dplyr::select(id_dao)
+
+# Get a list of only distinct geometry n = 19621
+distinct_geometry <- load_student %>%
+  dplyr::distinct(geometry, .keep_all = TRUE) %>%
+  dplyr::select(id_dao)
+
+
+
+
+# Check that obs with same studentkey have the same geometry
+test <- load_student %>%
+  dplyr::bind_cols(load_student %>% sf::st_coordinates()) %>%
+  dplyr::mutate(yx = paste0(Y, X)) %>%
+  dplyr::select(id_dao, studentkey, yx) %>%
+  sf::st_drop_geometry()
+
+# List of unique geometry by variable studentkey
+# There are obs with same studentkey but different geometry
+test %>%
+  dplyr::group_by(studentkey) %>%
+  dplyr::summarise(n = dplyr::n_distinct(yx)) %>%
+  dplyr::arrange(desc(n))
+
+# Number of unique geometry
+test %$% dplyr::n_distinct(yx)
+
+# List of unique studentkey by variable geometry
+# There are obs with same studentkey but different geometry
+test %>%
+  dplyr::group_by(yx) %>%
+  dplyr::summarise(n = dplyr::n_distinct(studentkey)) %>%
+  dplyr::arrange(desc(n))
 
 
 # Create school buffer ----------------------------------------------------
@@ -41,11 +81,13 @@ tictoc::toc()
 # Export ------------------------------------------------------------------
 
 save_data <- function(dataset.name, file.location, file.location.arc){
-  # readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
-  # readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
+  readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
+  readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
   saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
   saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
 }
 
 save_data(buffer_school, "DATA/Processed/Aim2/aim2_buffer_school", "DATA/Processed/Aim2/Archived/aim2_buffer_school")
 save_data(buffer_student, "DATA/Processed/Aim2/aim2_buffer_student", "DATA/Processed/Aim2/Archived/aim2_buffer_student")
+save_data(distinct_student, "DATA/Processed/Aim2/aim2_distinct_student", "DATA/Processed/Aim2/Archived/aim2_distinct_student")
+save_data(distinct_geometry, "DATA/Processed/Aim2/aim2_distinct_geometry", "DATA/Processed/Aim2/Archived/aim2_distinct_geometry")
