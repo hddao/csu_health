@@ -63,16 +63,23 @@ test %>%
 
 # Create school buffer ----------------------------------------------------
 
+# Load boundary data
 boundary_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_boundary_sf.rds") %>%
   sf::st_as_sf() %>%
-  dplyr::select(cdenumber) %>%
   dplyr::filter(!is.na(cdenumber)) %>%
   sf::st_transform(crs = 26953)
 
+# Convert to polygons
+boundary_polygon <- sf::st_cast(boundary_sf, "POLYGON")
+# Convert to multipolygons
+boundary_multipolygon <- aggregate(boundary_polygon, list(boundary_polygon$cdenumber), function(x) x[1])
+
+
+# Produce buffers by distance
 tictoc::tic("create_buffer_school")
 buffer_school <-  purrr::pmap(buffer,
                               function(distance){
-                                sf::st_buffer(x = boundary_sf, dist = distance)
+                                sf::st_buffer(x = boundary_multipolygon %>% dplyr::select(cdenumber), dist = distance)
                               })
 tictoc::toc()
 
@@ -91,3 +98,5 @@ save_data(buffer_school, "DATA/Processed/Aim2/aim2_buffer_school", "DATA/Process
 save_data(buffer_student, "DATA/Processed/Aim2/aim2_buffer_student", "DATA/Processed/Aim2/Archived/aim2_buffer_student")
 save_data(distinct_student, "DATA/Processed/Aim2/aim2_distinct_student", "DATA/Processed/Aim2/Archived/aim2_distinct_student")
 save_data(distinct_geometry, "DATA/Processed/Aim2/aim2_distinct_geometry", "DATA/Processed/Aim2/Archived/aim2_distinct_geometry")
+
+save_data(boundary_multipolygon, "DATA/Processed/Aim2/aim2_boundary_multipolygon_sf", "DATA/Processed/Aim2/Archived/aim2_boundary_multipolygon_sf")
