@@ -42,18 +42,6 @@ modis_stack_raw <- raster::stack(modis_location)
 modis_stack <- modis_stack_raw*0.0001
 modis_stack <- raster::calc(modis_stack, fun = function(x){ x[x < 0 | x > 1] <- NA; return(x)})
 
-
-# modis_stack_df <- raster::as.data.frame(modis_stack, xy = TRUE) %>%
-#   reshape2::melt(id.vars = c('x','y')) %>%
-#   # get ymd date
-#   dplyr::left_join(files %>% dplyr::select(variable, date),
-#                    by = "variable")
-#
-# ggplot2::ggplot(modis_stack_df) +
-#   ggplot2::geom_histogram(ggplot2::aes(value)) +
-#   ggplot2::facet_wrap(~date)
-
-
 # Calculating average NDVI ------------------------------------------------
 modis_avg <- raster::stackApply(modis_stack,
                                 indices = c(1),
@@ -61,25 +49,7 @@ modis_avg <- raster::stackApply(modis_stack,
                                 na.rm = TRUE)
 
 
-# Visualize MODIS ---------------------------------------------------------
-# # package raster
-# # package rasterVis
-#
-# par(mfrow = c(1,1))
-# raster::plot(modis_stack,
-#              zlim = c(0, 1),
-#              col = hcl.colors(11, "Greens", rev = TRUE))
-# raster::plot(modis_avg,
-#              zlim = c(0, 1),
-#              col = hcl.colors(11, "Greens", rev = TRUE))
-#
-# raster::hist(modis_avg)
-#
-# raster::hist(modis_stack)
-
-
-
-# Stack MODIS by month ----------------------------------------------------
+# MODIS Monthly Average NDVI ----------------------------------------------
 
 # List of files by month
 files_month <- files %>%
@@ -92,7 +62,6 @@ files_month <- files %>%
   # get the vector for file location
   purrr::map(~.x %$% base::as.vector(file_location))
 
-
 # Stack
 modis_stack_month_raw <- files_month %>% purrr::map(raster::stack)
 modis_stack_month <- modis_stack_month_raw %>%
@@ -100,15 +69,12 @@ modis_stack_month <- modis_stack_month_raw %>%
   # Keep only value between 0 and 1
   purrr::map(~raster::calc(.x, fun = function(x){ x[x < 0 | x > 1] <- NA; return(x)}))
 
-
 # Calculate NDVI
 modis_avg_month <- modis_stack_month %>%
   purrr::map(~raster::stackApply(.x,
                                  indices = c(1),
                                  fun = mean,
                                  na.rm = TRUE))
-
-
 
 # Export ------------------------------------------------------------------
 
