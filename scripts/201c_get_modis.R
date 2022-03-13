@@ -62,20 +62,51 @@ modis_avg <- raster::stackApply(modis_stack,
 
 
 # Visualize MODIS ---------------------------------------------------------
-# package raster
-# package rasterVis
+# # package raster
+# # package rasterVis
+#
+# par(mfrow = c(1,1))
+# raster::plot(modis_stack,
+#              zlim = c(0, 1),
+#              col = hcl.colors(11, "Greens", rev = TRUE))
+# raster::plot(modis_avg,
+#              zlim = c(0, 1),
+#              col = hcl.colors(11, "Greens", rev = TRUE))
+#
+# raster::hist(modis_avg)
+#
+# raster::hist(modis_stack)
 
-par(mfrow = c(1,1))
-raster::plot(modis_stack,
-             zlim = c(0, 1),
-             col = hcl.colors(11, "Greens", rev = TRUE))
-raster::plot(modis_avg,
-             zlim = c(0, 1),
-             col = hcl.colors(11, "Greens", rev = TRUE))
 
-raster::hist(modis_avg)
 
-raster::hist(modis_stack)
+# Stack MODIS by month ----------------------------------------------------
+
+# List of files by month
+files_month <- files %>%
+  # Filter to only NDVI files
+  dplyr::filter(raster_value == "NDVI") %>%
+  # Create variable month
+  dplyr::mutate(month = date %>% lubridate::month()) %>%
+  # Split data by month
+  dplyr::group_split(month) %>%
+  # get the vector for file location
+  purrr::map(~.x %$% base::as.vector(file_location))
+
+
+# Stack
+modis_stack_month_raw <- files_month %>% purrr::map(raster::stack)
+modis_stack_month <- modis_stack_month_raw %>%
+  purrr::map(~.x*0.0001) %>%
+  # Keep only value between 0 and 1
+  purrr::map(~raster::calc(.x, fun = function(x){ x[x < 0 | x > 1] <- NA; return(x)}))
+
+
+# Calculate NDVI
+modis_avg_month <- modis_stack_month %>%
+  purrr::map(~raster::stackApply(.x,
+                                 indices = c(1),
+                                 fun = mean,
+                                 na.rm = TRUE))
 
 
 
@@ -85,3 +116,17 @@ raster::writeRaster(modis_avg,
                     "DATA/Processed/Aim2/MODIS/aim2_modis_avg_20152019.tif",
                     format="GTiff",
                     overwrite=TRUE)
+
+export_df <- tibble::tibble(modis = modis_avg_month,
+                            month = c(1:12) %>% stringr::str_pad(2, pad = "0"))
+purrr::pwalk(export_df,
+             .f = function(modis, month) {
+               raster::writeRaster(modis,
+                                   paste0("DATA/Processed/Aim2/MODIS/aim2_modis_avg_20152019",
+                                          "_", month, ".tif"),
+                                   format="GTiff",
+                                   overwrite=TRUE)
+               })
+
+
+
