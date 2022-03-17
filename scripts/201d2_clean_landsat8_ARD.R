@@ -70,18 +70,18 @@ landsat8_012009 <- terra::rast("DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_mean
 
 
 # Calculate mean ----------------------------------------------------------
-# pr <- "012009"
-# tictoc::tic("terra::app")
-# Sys.time()
-# spatraster <- get(paste0("terra_", pr))
-# mean <- terra::app(spatraster, fun = function(x, na.rm) {mean(x, na.rm = TRUE)})
-# terra::writeRaster(mean,
-#                    paste0("DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_mean_", pr, ".tif"),
-#                    datatype = "FLT4S",
-#                    overwrite = TRUE)
-# # rm(mean)
-# gc()
-# tictoc::toc()
+pr <- "012009"
+tictoc::tic("terra::app")
+Sys.time()
+spatraster <- get(paste0("terra_", pr))
+mean <- terra::app(spatraster, fun = function(x, na.rm) {mean(x, na.rm = TRUE)})
+terra::writeRaster(mean,
+                   paste0("DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_mean_", pr, ".tif"),
+                   datatype = "FLT4S",
+                   overwrite = TRUE)
+# rm(mean)
+gc()
+tictoc::toc()
 
 
 # Mosaic ARD tiles --------------------------------------------------------

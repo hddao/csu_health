@@ -43,6 +43,13 @@ load_buffer_school <- readr::read_rds("DATA/Processed/Aim2/aim2_buffer_school_26
 
 load_student_sf <- readr::read_rds("DATA/Processed/Aim2/aim2_student_sf_26953.rds")
 
+# Monthly mean
+landsat_monthly <- list.files(path = "DATA/Processed/Aim2/Landsat 8/",
+                              full.names = TRUE,
+                              pattern = "^landsat8_ndvi_.[0-9]\\.tif")
+modis_monthly <- list.files(path = "DATA/Processed/Aim2/MODIS/",
+                            full.names = TRUE,
+                            pattern = "^aim2_modis_avg_20152019_.[0-9]\\.tif")
 # Prepare data ------------------------------------------------------------
 
 # RASTER
@@ -66,6 +73,96 @@ modis_26953 <- reproject_raster(load_modis, espg_26953, "reproject modis") #0.87
 landsat_26953 <- reproject_raster(load_landsat, espg_26953, "reproject landsat") %>%
   # Crop landsat to nlcd extent
   terra::crop(terra::ext(nlcd_26953)) #173.53 sec
+
+
+# Reproject monthly mean raster to crs(buffer) ----------------------------
+
+# Create a character vector for month
+month <- c(1:12) %>% stringr::str_pad(2, pad = "0")
+
+# MODIS: reproject and export
+modis_monthly_reproject <- modis_monthly %>%
+  purrr::map(terra::rast) %>%
+  purrr::map2(month,
+              .f = function(raster, month) {
+                tictoc::tic("reproject modis")
+                raster_new <- terra::project(x = raster, y = "epsg:26953")
+                terra::writeRaster(raster_new,
+                                   paste0("DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_modis_26953_",
+                                          month,
+                                          ".tif"),
+                                   datatype = "FLT4S",
+                                   overwrite = TRUE)
+                tictoc::toc()
+                raster_new
+               })
+# Each reproject modis: ~1.50 sec elapsed
+
+
+# LANDSAT: crop, reproject, and export
+landsat_monthly_reproject <- landsat_monthly %>%
+  purrr::map(terra::rast) %>%
+  purrr::map2(month,
+              .f = function(raster, month) {
+                tictoc::tic("reproject landsat")
+                raster_new <- raster %>%
+                  # crop to nlcd_9001 extent
+                  terra::crop(terra::ext(nlcd_9001)) %>%
+                  # reproject
+                  terra::project(y = "epsg:26953")
+                # export
+                terra::writeRaster(raster_new,
+                                   paste0("DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_landsat_26953_",
+                                          month,
+                                          ".tif"),
+                                   datatype = "FLT4S",
+                                   overwrite = TRUE)
+                tictoc::toc()
+                raster_new
+              })
+# EACH reproject landsat: ~60 sec elapsed
+
+
+# Explore monthly mean ----------------------------------------------------
+
+# Crop MODIS to same extent as nlcd_26953
+modis_monthly_reproject_crop <- modis_monthly_reproject %>%
+  purrr::map(terra::crop, terra::ext(nlcd_26953))
+
+# Create a function to get monthly stats
+get_stats <- function(x, y) {x %>%
+    terra::global(fun = y, na.rm=TRUE) %>% as.numeric()}
+
+
+# Average of all raster cells by month
+modis_avg_monthly <- modis_monthly_reproject_crop %>%
+  purrr::map(get_stats, "mean") %>% as.numeric()
+
+landsat_avg_monthly <- landsat_monthly_reproject %>%
+  purrr::map(get_stats, "mean") %>% as.numeric()
+
+
+# Average of all raster cells across 2015-2019
+nlcd_avg <- nlcd_26953 %>% get_stats ("mean") / 100
+modis_avg <- mean(modis_avg_monthly)
+landsat_avg <- mean(landsat_avg_monthly)
+
+
+# Plots of monthly average from LANDSAT and MODIS
+ggplot2::ggplot()+
+  ggplot2::geom_point(ggplot2::aes(x = landsat_avg_monthly,
+                                   y = modis_avg_monthly))+
+  ggplot2::xlim(0, 1) +
+  ggplot2::ylim(0, 1) +
+  ggplot2::geom_abline(slope = 1, intercept = 0)
+
+
+# Variance of all raster cells by month
+modis_sd_monthly <- modis_monthly_reproject_crop %>%
+  purrr::map(get_stats, "sd") %>% as.numeric()
+
+landsat_sd_monthly <- landsat_monthly_reproject %>%
+  purrr::map(get_stats, "sd") %>% as.numeric()
 
 
 # Export files for greenspace calculation ---------------------------------
