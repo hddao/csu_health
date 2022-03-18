@@ -10,6 +10,12 @@ source("scripts/Functions/save_data.R")
 raw_greenspaceall_geometry <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds")
 raw_greenspaceall_geometry_monthly <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_monthly.rds")
 
+# id_dao_df <- raw_greenspaceall_geometry %>%
+#   dplyr::distinct(id_dao) %>%
+#   dplyr::arrange(id_dao) %>%
+#   tibble::rowid_to_column("value")
+
+
 # Note: Comparison analysis -----------------------------------------------
 
 # Follow Parker 2020 paper for agreement analysis
@@ -41,7 +47,6 @@ raw_greenspaceall_geometry_monthly <- readr::read_rds("DATA/Processed/Aim2/Green
 
 # Prepare dataset ---------------------------------------------------------
 
-
 # Create a function to clean greenspace data
 clean_greenspace <- function(raw_gs_df) {
   tibble::as_tibble(raw_gs_df) %>%
@@ -66,11 +71,6 @@ gs_df <- raw_greenspaceall_geometry %>%
   # Create month = "All months"
   dplyr::mutate(month = "All months") %>%
   clean_greenspace()
-# List of data in pair of raster
-gs_pair_list <- c("landsat_26953", "nlcd_26953", "modis_26953") %>%
-  purrr::map(~gs_df %>%
-               dplyr::filter(!(raster %in% c(.x))))
-
 
 # NLCD
 gs_nlcd_df <- gs_df %>%
@@ -78,91 +78,153 @@ gs_nlcd_df <- gs_df %>%
 
 
 # Monthly
-gs_monthly_df <- raw_greenspaceall_geometry_monthly %>%
+gs_monthly_list <- raw_greenspaceall_geometry_monthly %>%
   dplyr::mutate(raster = raster %>% stringr::str_sub(1, -4)) %>%
   dplyr::mutate(month = month %>% as.factor()) %>%
-  clean_greenspace()
-# List of data by month in pair of raster
-gs_monthly_pair_list <- gs_monthly_df %>%
-  dplyr::group_split(month)
-# With NLCD
-gs_monthly_pair_nlcd_list <- gs_monthly_pair_list %>%
+  clean_greenspace() %>%
+  dplyr::group_split(month) %>%
   purrr::map2(c(1:12) %>% stringr::str_pad(2, pad = "0"),
-    function(x, y){
-      nlcd <- gs_nlcd_df %>% dplyr::mutate(month = y)
-      x %>% dplyr::bind_rows(nlcd)
-  }) %>%
+              function(x, y){
+                nlcd <- gs_nlcd_df %>% dplyr::mutate(month = y)
+                x %>% dplyr::bind_rows(nlcd)
+              })
+
+# All
+
+gs_all_list <- append(gs_df %>% list(),
+                      gs_monthly_list)
+gs_all_pair_list <- gs_all_list %>%
   purrr::map(function(x) {c("landsat_26953", "nlcd_26953", "modis_26953") %>%
       purrr::map(~x %>%
                    dplyr::filter(!(raster %in% c(.x))))
-    })
+  })
 
 
 
-# All
-gs_all_df <- dplyr::bind_rows(gs_df, gs_monthly_df)
-gs_all_pair_list <- append(gs_pair_list %>% list(),
-                      gs_monthly_pair_nlcd_list)
+
+# save_data(gs_all_pair_list,
+#           "DATA/Processed/Aim2/Agreement/gs_all_pair_list",
+#           "DATA/Processed/Aim2/Agreement/Archived/gs_all_pair_list",
+#           csv = FALSE)
+
+gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_pair_list.rds")
+
+
+
 
 # Descriptive stats -------------------------------------------------------
 
-gs_desc_df <- gs_all_pair_list %>%
-  purrr::map(function(x){
-    purrr::map(x, ~.x %>% tidyr::pivot_wider(names_from = raster,
-                                          values_from = greenspace))
-  })
-
-gs_desc_df %>%
-  purrr::walk(.f = function(list){
-    plot_list <- list %>%
-      purrr::map(.f = function(df){
-        ggplot2::ggplot(df, ggplot2::aes(x = get(names(df)[4]), y = get(names(df)[5]))) +
-          ggplot2::geom_point(ggplot2::aes(colour = distance),
-                              shape = "circle open") +
-          ggplot2::xlim(0, 0.7) +
-          ggplot2::ylim(0, 0.7) +
-          ggplot2::geom_abline(slope = 1, intercept = 0) +
-          ggplot2::xlab(names(df)[4]) +
-          ggplot2::ylab(names(df)[5]) +
-          ggplot2::ggtitle(paste0("Month: ", df$month[1]))
-      })
-    month <- list[[1]]$month[1]
-    p <- gridExtra::arrangeGrob(plot_list[[1]], plot_list[[2]], plot_list[[3]],
-                                nrow=2, ncol=2,
-                                top = grid::textGrob(paste0("Month: ", month)))
-    ggplot2::ggsave(plot = p,
-                    paste0("outputs/figures/Aim2/scatterplot_", month, ".jpg"),
-                    device = "jpeg",
-                    width = 9,
-                    height = 6,
-                    units = "in")
-  })
+# gs_desc_df <- gs_all_pair_list %>%
+#   purrr::map(function(x){
+#     purrr::map(x, ~.x %>% tidyr::pivot_wider(names_from = raster,
+#                                              values_from = greenspace))
+#   })
+#
+# gs_desc_df %>%
+#   purrr::walk(.f = function(list){
+#     plot_list <- list %>%
+#       purrr::map(.f = function(df){
+#         ggplot2::ggplot(df, ggplot2::aes(x = get(names(df)[4]), y = get(names(df)[5]))) +
+#           ggplot2::geom_point(ggplot2::aes(colour = distance),
+#                               shape = "circle open") +
+#           ggplot2::xlim(0, 0.7) +
+#           ggplot2::ylim(0, 0.7) +
+#           ggplot2::geom_abline(slope = 1, intercept = 0) +
+#           ggplot2::xlab(names(df)[4]) +
+#           ggplot2::ylab(names(df)[5]) +
+#           ggplot2::ggtitle(paste0("Month: ", df$month[1]))
+#       })
+#     month <- list[[1]]$month[1]
+#     p <- gridExtra::arrangeGrob(plot_list[[1]], plot_list[[2]], plot_list[[3]],
+#                                 nrow=2, ncol=2,
+#                                 top = grid::textGrob(paste0("Month: ", month)))
+#     ggplot2::ggsave(plot = p,
+#                     paste0("outputs/figures/Aim2/scatterplot_", month, ".jpg"),
+#                     device = "jpeg",
+#                     width = 9,
+#                     height = 6,
+#                     units = "in")
+#   })
 
 
 
 
 # 1. Linear mixed-model ---------------------------------------------------
 
-#Mixed effects model (1) in the main paper
-lmer_res <- gs_all_pair_list %>%
-  unlist(recursive = FALSE) %>%
-  purrr::map(function(df){
-    tictoc::tic("lme4::lmer")
-    res <- lme4::lmer(greenspace ~ raster +
-                        (1|id_dao) + (1|distance) +
-                        (1|id_dao:raster) + (1|id_dao:distance) +
-                        (1|distance:raster),
-                      data = df,
-                      control = lme4::lmerControl(optimizer = "bobyqa"))
-    res_sum <- summary(res)
-    tictoc::toc()
-    result <- list(res, res_sum)
-  })
-lmer_info <- tibble::tibble(month = rep(c(0:12) %>% stringr::str_pad(2, pad = "0"), each = 3),
-                             landsat_26953 = rep(c(0,1,1), times = 13),
-                             nlcd_26953 = rep(c(1,0,1), times = 13),
-                             modis_26953= rep(c(1,1,0), times = 13)) %>%
- split(seq(nrow(.)))
+# # List of model info
+# lmer_info <- tibble::tibble(month = rep(c(0:12) %>% stringr::str_pad(2, pad = "0"), each = 3),
+#                             landsat_26953 = rep(c(0,1,1), times = 13),
+#                             nlcd_26953 = rep(c(1,0,1), times = 13),
+#                             modis_26953= rep(c(1,1,0), times = 13)) %>%
+#   split(seq(nrow(.)))
+#
+#
+# #Mixed effects model (1) in the main paper
+# lmer_res <- gs_all_pair_list %>%
+#   unlist(recursive = FALSE) %>%
+#   purrr::map(function(df){
+#     tictoc::tic("lme4::lmer")
+#     res <- lme4::lmer(greenspace ~ raster +
+#                         (1|id_dao) + (1|distance) +
+#                         (1|id_dao:raster) + (1|id_dao:distance) +
+#                         (1|distance:raster),
+#                       data = df,
+#                       control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_sum <- summary(res)
+#     tictoc::toc()
+#     result <- list(res, res_sum)
+#   })
+#
+# # (mixed model approach--modelling the differences) for calculating LOA
+# lmer_res_diff <- gs_all_pair_list %>%
+#   # unlist to create no nested list
+#   unlist(recursive = FALSE) %>%
+#   # run for each df
+#   purrr::map(function(df) {
+#     tictoc::tic("lme4::lmer() for res_diff")
+#     # Edit df to create variable d
+#     df <- df %>%
+#       tidyr::pivot_wider(names_from = raster,
+#                          values_from = greenspace) %>%
+#       dplyr::mutate(d = .[[4]] - .[[5]])
+#     # run lme4::lmer() for res_diff
+#     res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
+#                            data = df,
+#                            control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_diff_sum <- summary(res_diff)
+#     tictoc::toc()
+#     result <- list(res_diff, res_diff_sum)
+#   })
+#
+#
+# lmer_res_diff_1 <- gs_all_pair_list %>%
+#   # unlist to create no nested list
+#   unlist(recursive = FALSE) %>%
+#   # run for each df
+#   purrr::map(function(df) {
+#     tictoc::tic("lme4::lmer() for res_diff_1")
+#     # Edit df to create variable d
+#     df <- df %>%
+#       tidyr::pivot_wider(names_from = raster,
+#                          values_from = greenspace) %>%
+#       dplyr::mutate(d = .[[4]] - .[[5]])
+#     # run lme4::lmer() for res_diff_1
+#     res_diff_1 <- lme4::lmer(d ~ 1 + (1|id_dao),
+#                              data = df,
+#                              control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_diff_1_sum <- summary(res_diff_1)
+#     tictoc::toc()
+#     result <- list(res_diff_1, res_diff_1_sum)
+#   })
+
+# save_data(lmer_res_diff,
+#           "DATA/Processed/Aim2/Agreement/lmer_res_diff",
+#           "DATA/Processed/Aim2/Agreement/Archived/lmer_res_diff",
+#           csv = FALSE)
+# save_data(lmer_res_diff_1,
+#           "DATA/Processed/Aim2/Agreement/lmer_res_diff_1",
+#           "DATA/Processed/Aim2/Agreement/Archived/lmer_res_diff_1",
+#           csv = FALSE)
 # save_data(lmer_res,
 #           "DATA/Processed/Aim2/Agreement/lmer_res",
 #           "DATA/Processed/Aim2/Agreement/Archived/lmer_res",
@@ -172,11 +234,22 @@ lmer_info <- tibble::tibble(month = rep(c(0:12) %>% stringr::str_pad(2, pad = "0
 #           "DATA/Processed/Aim2/Agreement/Archived/lmer_info",
 #           csv = FALSE)
 
+lmer_info <- readr::read_rds("DATA/Processed/Aim2/Agreement/lmer_info.rds")
+lmer_res <- readr::read_rds("DATA/Processed/Aim2/Agreement/lmer_res.rds")
+lmer_res_diff <- readr::read_rds("DATA/Processed/Aim2/Agreement/lmer_res_diff.rds")
+lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement/lmer_res_diff_1.rds")
 
 
-# Variance statistics -----------------------------------------------------
 
-create_var_stat_df <- function(res_sum, p = c(0.90, 0.95), delta = c(0.05, 0.1)) {
+# Agreement statistics ----------------------------------------------------
+
+create_agreement_stats <- function(lmer_res, lmer_res_diff, lmer_res_diff_1,
+                                   p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
+  # Get summary
+  res_sum <- lmer_res[[2]]
+  res_diff_sum <- lmer_res_diff[[2]]
+  res_diff_1_sum <- lmer_res_diff_1[[2]]
+
   # beta coefficient (Estimate) for raster
   beta2.est <- coef(res_sum)[2]
   # varcor for id_dao
@@ -211,6 +284,24 @@ create_var_stat_df <- function(res_sum, p = c(0.90, 0.95), delta = c(0.05, 0.1))
   #Coefficient of individual agreement
   CIA <- 2*sigma2.epsilon.est/MSD
 
+  # Limits of agreement (mixed model approach--modelling the differences)
+  # totalsd
+  totalsd <- sqrt(as.numeric(res_diff_sum$varcor[1]) +
+                    as.numeric(res_diff_sum$varcor[2]) +
+                    as.numeric(res_diff_sum$sigma^2))
+  # meanb
+  meanb <- coef(res_diff_1_sum)[1]
+  # lcl; ucl
+  # alpha <- 0.05
+  z <- qnorm(1-alpha/2)
+  lcl <- meanb - z*totalsd
+  ucl <- meanb + z*totalsd
+  #limits of agreement (mixed model approach--raw data)
+  ll_raw <- beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
+  ul_raw <- beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
+  mean_raw <- beta2.est
+
+  # Exported df
   var_stat_df <- tibble::tibble(beta2.est,
                                 sigma2.alpha.est,
                                 sigma2.gamma.est,
@@ -219,164 +310,148 @@ create_var_stat_df <- function(res_sum, p = c(0.90, 0.95), delta = c(0.05, 0.1))
                                 sigma2.beta.gamma.est,
                                 sigma2.epsilon.est,
                                 phi2.beta.est,
-                                CCC,
-                                MSD,
-                                TDI,
-                                CP,
-                                CIA)
+                                CCC, MSD, TDI, CP, CIA,
+                                totalsd, meanb, lcl, ucl, mean_raw, ll_raw, ul_raw)
 }
 
-var_stat_list <- lmer_res %>%
-  # Calculate variance statistics for each lmer result
-  purrr::map(function(list){list[[2]] %>% create_var_stat_df()}) %>%
+# Create a df for purrr::map()
+map_df <- tibble::tibble(lmer_res,
+                         lmer_res_diff,
+                         lmer_res_diff_1)
+
+agreement_stat_df <- purrr::pmap(map_df, .f = create_agreement_stats) %>%
   # Added information on the model
-  purrr::map2(lmer_info, function(x, y) {dplyr::bind_cols(x, y)}) %>%
+  purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
   # Combine all df
   dplyr::bind_rows()
 
+save_data(agreement_stat_df,
+          "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths",
+          "DATA/Processed/Aim2/Agreement/Archived/agreement_stat_df_pairwise_allmonths")
 
 
 
 
-# LOA ---------------------------------------------------------------------
-
-
-data <- gs_all_pair_list[[1]][[1]] %>%
-  tidyr::pivot_wider(names_from = raster,
-                     values_from = greenspace) %>%
-  dplyr::mutate(d = .[[4]] + .[[5]])
-
-
-#Limits of agreement (mixed model approach--modelling the differences)
-res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
-                 data = data,
-                 control = lme4::lmerControl(optimizer = "bobyqa"))
-summary(res_diff)
-## Linear mixed model fit by REML ['lmerMod']
-## Formula: d ~ (1 | id_dao) + (1 | distance)
-## Control: lmerControl(optimizer = "bobyqa")
-##
-## REML criterion at convergence: 2231.1
-##
-## Scaled residuals:
-## Min 1Q Median 3Q Max
-## -4.2106 -0.4468 -0.0138 0.3886 5.8757
-##
-## Random effects:
-## Groups Name Variance Std.Dev.
-## id_dao (Intercept) 0.9602 0.9799
-## distance (Intercept) 7.5652 2.7505
-## Residual 17.3753 4.1684
-## Number of obs: 385, groups: id_dao, 21; distance, 11
-##
-## Fixed effects:
-## Estimate Std. Error t value
-## (Intercept) -1.273 0.895 -1.422
-totalsd <- sqrt(as.numeric(summary(res.diff)$varcor[1])+
-                  as.numeric(summary(res.diff)$varcor[2])+
-                  as.numeric(summary(res.diff)$sigma^2)
-)
-res.diff.1 <- lmer(d ~ 1 + (1|id_dao),
-                   control = lmerControl(optimizer = "bobyqa")
-)
-summary(res.diff.1)
-## Linear mixed model fit by REML ['lmerMod']
-## Formula: d ~ 1 + (1 | id_dao)
-## Control: lmerControl(optimizer = "bobyqa")
-##
-## REML criterion at convergence: 2297.7
-##
-## Scaled residuals:
-## Min 1Q Median 3Q Max
-## -4.7264 -0.4244 0.1472 0.3797 5.9935
-##
-## Random effects:
-## Groups Name Variance Std.Dev.
-## id_dao (Intercept) 0.67 0.8186
-## Residual 22.36 4.7288
-## Number of obs: 385, groups: id_dao, 21
-##
-## Fixed effects:
-## Estimate Std. Error t value
-## (Intercept) -1.5960 0.3001 -5.317
-meanb <- coef(summary(res.diff.1))[1]
-meanb
-## [1] -1.595991
-alpha <- 0.05
-z <- qnorm(1-alpha/2)
-lcl <- meanb - z*totalsd
-ucl <- meanb + z*totalsd
-lcl; ucl
-## [1] -11.57078
-## [1] 8.378797
-#limits of agreement (mixed model approach--raw data)
-ll_raw <- beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
-ul_raw <- beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
-ll_raw; ul_raw
-## [1] -11.86257
-## [1] 9.297345
-beta2.est
-## [1] -1.282612
 
 
 
 
-# Bootstrap for CI --------------------------------------------------------
+# Bootstrap ---------------------------------------------------------------
 
-
-####bootstrap procedure
 set.seed(123)
-n <- 21
-B <- 500
+
+
+
+
+# Create a function to get resample data for bootstrap
+# Set n = number of subject: n = 21950
+# Set B = number of bootstrap sample
+create_boot_sample <- function(data, n = 21950, B = 2){
+  tictoc::tic("create boot sample")
+  # clean the data
+  data <- data %>%
+    data.table::as.data.table()
+  # create id_dao_df to merge with sample number
+  id_dao_df <- data %>%
+    dplyr::distinct(id_dao) %>%
+    dplyr::arrange(id_dao) %>%
+    tibble::rowid_to_column("value")
+  # sample with replacement 1:n
+  boot_data_list <- replicate(n = B, sample(1:n, n, replace = TRUE), simplify = FALSE) %>%
+    # Get id_dao values
+    purrr::map(~dplyr::left_join(.x %>% tibble::as_tibble(),
+                                 id_dao_df,
+                                 by = "value") %$%
+                 id_dao %>% as.character() %>% as.list()) %>%
+    # Get data for each id_dao
+    purrr::map_depth(2, ~data[id_dao == .x, ]) %>%
+    # combine all data + include idb as new id_dao
+    purrr::map(data.table::rbindlist, use.names = FALSE, idcol = "idb")
+  tictoc::toc()
+  gc()
+  boot_data_list
+}
+
+# Create list of 500 samples
+bootsample_00 <- gs_all_pair_list %>%
+  # Get only 1 list of data for "All months"
+  magrittr::extract2(1) %>%
+  # Create boot sample for 3 set of df
+  purrr::map_depth(1, create_boot_sample)
+
+
+
+
+
+
+
+
+# Prepare for loop: Set empty list for model result
 resb <- resdb <- resd1b <- list()
 for(l in 1:B){
+  # ind: sample with replace subject
   ind <- sample(1:n, n, replace = TRUE)
-  id_dao_boot <- list()
+  # Prepare for loop: Set empty list boot
+  subject_boot <- list()
   for(j in 1:n){
-    id_dao_boot[[j]] <- data[data$PatientID==ind[j],c(1,3,5,12)]
+    # Get subject data from original data (wide format)
+    subject_boot[[j]] <- data[data$PatientID==ind[j],c(1,3,5,12)]
   }
-  datab <- rbind(id_dao_boot[[1]], id_dao_boot[[2]], id_dao_boot[[3]], id_dao_boot[[4]],
-                 id_dao_boot[[5]], id_dao_boot[[6]], id_dao_boot[[7]], id_dao_boot[[8]],
-                 id_dao_boot[[9]], id_dao_boot[[10]], id_dao_boot[[11]], id_dao_boot[[12]],
-                 id_dao_boot[[13]], id_dao_boot[[14]], id_dao_boot[[15]], id_dao_boot[[16]],
-                 id_dao_boot[[17]], id_dao_boot[[18]], id_dao_boot[[19]], id_dao_boot[[20]],
-                 id_dao_boot[[21]]
+  # Combine all subject data
+  datab <- rbind(subject_boot[[1]], subject_boot[[2]], subject_boot[[3]], subject_boot[[4]],
+                 subject_boot[[5]], subject_boot[[6]], subject_boot[[7]], subject_boot[[8]],
+                 subject_boot[[9]], subject_boot[[10]], subject_boot[[11]], subject_boot[[12]],
+                 subject_boot[[13]], subject_boot[[14]], subject_boot[[15]], subject_boot[[16]],
+                 subject_boot[[17]], subject_boot[[18]], subject_boot[[19]], subject_boot[[20]],
+                 subject_boot[[21]]
   )
+  # prepare outcome for long data format
   yb <- as.vector(c(datab$RRox,datab$RRcb))
-  aux <- c(rep(1,nrow(id_dao_boot[[1]])),rep(2,nrow(id_dao_boot[[2]])),
-           rep(3,nrow(id_dao_boot[[3]])),rep(4,nrow(id_dao_boot[[4]])),
-           rep(5,nrow(id_dao_boot[[5]])),rep(6,nrow(id_dao_boot[[6]])),
-           rep(7,nrow(id_dao_boot[[7]])),rep(8,nrow(id_dao_boot[[8]])),
-           rep(9,nrow(id_dao_boot[[9]])),rep(10,nrow(id_dao_boot[[10]])),
-           rep(11,nrow(id_dao_boot[[11]])),rep(12,nrow(id_dao_boot[[12]])),
-           rep(13,nrow(id_dao_boot[[13]])),rep(14,nrow(id_dao_boot[[14]])),
-           rep(15,nrow(id_dao_boot[[15]])),rep(16,nrow(id_dao_boot[[16]])),
-           rep(17,nrow(id_dao_boot[[17]])),rep(18,nrow(id_dao_boot[[18]])),
-           rep(19,nrow(id_dao_boot[[19]])),rep(20,nrow(id_dao_boot[[20]])),
-           rep(21,nrow(id_dao_boot[[21]]))
+  # prepare NEW patientID
+  aux <- c(rep(1,nrow(subject_boot[[1]])),rep(2,nrow(subject_boot[[2]])),
+           rep(3,nrow(subject_boot[[3]])),rep(4,nrow(subject_boot[[4]])),
+           rep(5,nrow(subject_boot[[5]])),rep(6,nrow(subject_boot[[6]])),
+           rep(7,nrow(subject_boot[[7]])),rep(8,nrow(subject_boot[[8]])),
+           rep(9,nrow(subject_boot[[9]])),rep(10,nrow(subject_boot[[10]])),
+           rep(11,nrow(subject_boot[[11]])),rep(12,nrow(subject_boot[[12]])),
+           rep(13,nrow(subject_boot[[13]])),rep(14,nrow(subject_boot[[14]])),
+           rep(15,nrow(subject_boot[[15]])),rep(16,nrow(subject_boot[[16]])),
+           rep(17,nrow(subject_boot[[17]])),rep(18,nrow(subject_boot[[18]])),
+           rep(19,nrow(subject_boot[[19]])),rep(20,nrow(subject_boot[[20]])),
+           rep(21,nrow(subject_boot[[21]]))
   )
-  id_daob <- as.vector(as.factor(c(aux,aux)))
-  rasterb <- as.vector(as.factor(c(rep(1,nrow(datab)),rep(2,nrow(datab)))))
-  distanceb <- c(as.factor(datab$distance),as.factor(datab$distance))
+  # prepare NEW patientID for long data format
+  subjectb <- as.vector(as.factor(c(aux,aux)))
+  # prepare device for long data format
+  deviceb <- as.vector(as.factor(c(rep(1,nrow(datab)),rep(2,nrow(datab)))))
+  # prepare activity for long data format
+  activityb <- c(as.factor(datab$Activity),as.factor(datab$Activity))
+  # prepare d = diffference for long data format
   db <- yb[(nrow(datab)+1):(2*nrow(datab))] - yb[1:nrow(datab)]
-  datab <- data.frame(yb, id_daob, rasterb, distanceb, db)
-  datab$rasterb <- as.factor(datab$rasterb)
-  datab$distanceb <- as.factor(datab$distanceb)
-  datab$id_daob <- as.factor(datab$id_daob)
-  resb[[l]] <- lmer(yb ~ rasterb+(1|id_daob)+(1|distanceb)+
-                      (1|id_daob:distanceb)+(1|id_daob:rasterb)+(1|distanceb:rasterb),
-                    data = datab,
+  # Create long data
+  copdb <- data.frame(yb, subjectb, deviceb, activityb, db)
+  copdb$deviceb <- as.factor(copdb$deviceb)
+  copdb$activityb <- as.factor(copdb$activityb)
+  copdb$subjectb <- as.factor(copdb$subjectb)
+  # Run lme4::lmer() res
+  resb[[l]] <- lmer(yb ~ deviceb+(1|subjectb)+(1|activityb)+
+                      (1|subjectb:activityb)+(1|subjectb:deviceb)+(1|activityb:deviceb),
+                    data = copdb,
                     control = lmerControl(optimizer = "bobyqa")
   )
-  resdb[[l]] <- lmer(db ~ (1|id_daob) + (1|distanceb),
-                     data = datab,
+  # Run lme4::lmer() res_diff
+  resdb[[l]] <- lmer(db ~ (1|subjectb) + (1|activityb),
+                     data = copdb,
                      control = lmerControl(optimizer = "bobyqa")
   )
-  resd1b[[l]] <- lmer(db ~ 1 + (1|id_daob),
-                      data = datab,
+  # Run lme4::lmer() res_diff_1
+  resd1b[[l]] <- lmer(db ~ 1 + (1|subjectb),
+                      data = copdb,
                       control = lmerControl(optimizer = "bobyqa")
   )
 }
+
+# Prepare empty object for later loop
 beta2.est.b <- numeric(B)
 sigma2.alpha.est.b <- sigma2.gamma.est.b <- numeric(B)
 sigma2.alpha.gamma.est.b <- sigma2.alpha.beta.est.b <- numeric(B)
@@ -467,7 +542,9 @@ beta2.est; b2b
 ## [1] -1.282612
 ## 2.5% 97.5%
 ## -1.8945034 -0.4927148
-m <- (data$y[1:385] + data$y[386:770])/2
+
+# Bland-Altman plot
+m <- (copd$y[1:385] + copd$y[386:770])/2
 plot(m, d, xlab = "Average", ylab = "Difference", ylim = c(-30,30))
 abline(h=ucl, lwd = 2, lty = 2)
 abline(h=ub[1], lwd = 3, lty = 3)
@@ -479,3 +556,58 @@ abline(h=0, lwd = 2)
 abline(h=meanb, lwd = 2, lty = 2)
 abline(h=meanbbq[1], lwd = 3, lty = 3)
 abline(h=meanbbq[2], lwd = 3, lty = 3)
+
+# Clean Agreement table ---------------------------------------------------
+agreement_stat_df <- readr::read_rds("DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds") %>%
+  dplyr::group_split(month)
+
+
+
+
+
+# Agreement, 3 raster -----------------------------------------------------
+
+#Mixed effects model (1) in the main paper
+lmer3_res <- gs_all_df %>%
+  dplyr::group_split(month) %>%
+  purrr::map(function(df){
+    tictoc::tic("lme4::lmer() for 3 raster")
+    res <- lme4::lmer(greenspace ~ raster +
+                        (1|id_dao) + (1|distance) +
+                        (1|id_dao:raster) + (1|id_dao:distance) +
+                        (1|distance:raster),
+                      data = df,
+                      control = lme4::lmerControl(optimizer = "bobyqa"))
+    res_sum <- summary(res)
+    tictoc::toc()
+    result <- list(res, res_sum)
+  })
+
+
+lmer12_res <- gs_all_df %>%
+  dplyr::filter(month != "All months") %>%
+  list() %>%
+  purrr::map(function(df){
+    tictoc::tic("lme4::lmer")
+    res <- lme4::lmer(greenspace ~ raster +
+                        (1|id_dao) + (1|distance) +
+                        (1|month) +
+                        (1|raster:month) + (1|month:distance) + (1|month:id_dao) +
+                        (1|id_dao:raster) + (1|id_dao:distance) +
+                        (1|distance:raster),
+                      data = df,
+                      control = lme4::lmerControl(optimizer = "bobyqa"))
+    res_sum <- summary(res)
+    tictoc::toc()
+    result <- list(res, res_sum)
+  })
+
+save_data(lmer3_res,
+          "DATA/Processed/Aim2/Agreement/lmer3_res",
+          "DATA/Processed/Aim2/Agreement/Archived/lmer3_res",
+          csv = FALSE)
+save_data(lmer12_res,
+          "DATA/Processed/Aim2/Agreement/lmer12_res",
+          "DATA/Processed/Aim2/Agreement/Archived/lmer12_res",
+          csv = FALSE)
+
