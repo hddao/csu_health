@@ -47,66 +47,66 @@ raw_greenspaceall_geometry_monthly <- readr::read_rds("DATA/Processed/Aim2/Green
 
 # Prepare dataset ---------------------------------------------------------
 
-# Create a function to clean greenspace data
-clean_greenspace <- function(raw_gs_df) {
-  tibble::as_tibble(raw_gs_df) %>%
-    # Rename to greenspace
-    dplyr::rename(greenspace = weighted_mean) %>%
-    # Factorize variables
-    dplyr::mutate(distance = distance %>% as.numeric() %>% as.factor(),
-                  raster = raster %>% as.factor(),
-                  id_dao = id_dao %>% as.factor()) %>%
-    # Rescale NLCD % Tree canopy to between 0-1
-    dplyr::mutate(greenspace = dplyr::case_when(
-      raster == "nlcd_26953" ~ greenspace/100,
-      TRUE ~ greenspace)) %>%
-    # Remove unnecessary variables
-    dplyr::select(-c(weight, weighted_value, type))
-}
-
-# Yearly
-gs_df <- raw_greenspaceall_geometry %>%
-  # Remove distance 2000 & 4000
-  dplyr::filter(!(distance %in% c("2000", "4000"))) %>%
-  # Create month = "All months"
-  dplyr::mutate(month = "All months") %>%
-  clean_greenspace()
-
-# NLCD
-gs_nlcd_df <- gs_df %>%
-  dplyr::filter(raster == "nlcd_26953")
-
-
-# Monthly
-gs_monthly_list <- raw_greenspaceall_geometry_monthly %>%
-  dplyr::mutate(raster = raster %>% stringr::str_sub(1, -4)) %>%
-  dplyr::mutate(month = month %>% as.factor()) %>%
-  clean_greenspace() %>%
-  dplyr::group_split(month) %>%
-  purrr::map2(c(1:12) %>% stringr::str_pad(2, pad = "0"),
-              function(x, y){
-                nlcd <- gs_nlcd_df %>% dplyr::mutate(month = y)
-                x %>% dplyr::bind_rows(nlcd)
-              })
-
-# All
-
-gs_all_list <- append(gs_df %>% list(),
-                      gs_monthly_list)
-gs_all_pair_list <- gs_all_list %>%
-  purrr::map(function(x) {c("landsat_26953", "nlcd_26953", "modis_26953") %>%
-      purrr::map(~x %>%
-                   dplyr::filter(!(raster %in% c(.x))))
-  })
-
-
-
-
+# # Create a function to clean greenspace data
+# clean_greenspace <- function(raw_gs_df) {
+#   tibble::as_tibble(raw_gs_df) %>%
+#     # Rename to greenspace
+#     dplyr::rename(greenspace = weighted_mean) %>%
+#     # Factorize variables
+#     dplyr::mutate(distance = distance %>% as.numeric() %>% as.factor(),
+#                   raster = raster %>% as.factor(),
+#                   id_dao = id_dao %>% as.factor()) %>%
+#     # Rescale NLCD % Tree canopy to between 0-1
+#     dplyr::mutate(greenspace = dplyr::case_when(
+#       raster == "nlcd_26953" ~ greenspace/100,
+#       TRUE ~ greenspace)) %>%
+#     # Remove unnecessary variables
+#     dplyr::select(-c(weight, weighted_value, type))
+# }
+#
+# # Yearly
+# gs_df <- raw_greenspaceall_geometry %>%
+#   # Remove distance 2000 & 4000
+#   dplyr::filter(!(distance %in% c("2000", "4000"))) %>%
+#   # Create month = "All months"
+#   dplyr::mutate(month = "All months") %>%
+#   clean_greenspace()
+#
+# # NLCD
+# gs_nlcd_df <- gs_df %>%
+#   dplyr::filter(raster == "nlcd_26953")
+#
+# # Monthly
+# gs_monthly_list <- raw_greenspaceall_geometry_monthly %>%
+#   dplyr::mutate(raster = raster %>% stringr::str_sub(1, -4)) %>%
+#   dplyr::mutate(month = month %>% as.factor()) %>%
+#   clean_greenspace() %>%
+#   dplyr::group_split(month) %>%
+#   purrr::map2(c(1:12) %>% stringr::str_pad(2, pad = "0"),
+#               function(x, y){
+#                 nlcd <- gs_nlcd_df %>% dplyr::mutate(month = y)
+#                 x %>% dplyr::bind_rows(nlcd)
+#               })
+#
+# # All
+# gs_all_list <- append(gs_df %>% list(),
+#                       gs_monthly_list)
+# gs_all_pair_list <- gs_all_list %>%
+#   purrr::map(function(x) {c("landsat_26953", "nlcd_26953", "modis_26953") %>%
+#       purrr::map(~x %>%
+#                    dplyr::filter(!(raster %in% c(.x))))
+#   })
+#
+# save_data(gs_all_list,
+#           "DATA/Processed/Aim2/Agreement/gs_all_list",
+#           "DATA/Processed/Aim2/Agreement/Archived/gs_all_list",
+#           csv = FALSE)
 # save_data(gs_all_pair_list,
 #           "DATA/Processed/Aim2/Agreement/gs_all_pair_list",
 #           "DATA/Processed/Aim2/Agreement/Archived/gs_all_pair_list",
 #           csv = FALSE)
 
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
 gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_pair_list.rds")
 
 
