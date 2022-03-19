@@ -343,73 +343,21 @@ id_dao_df <- gs_all_list[[1]] %>%
   dplyr::arrange(id_dao) %>%
   tibble::rowid_to_column("value")
 
-
-
-
 # Create a function to get resample data for bootstrap
-# Set n = number of subject: n = 21950
-# Set B = number of bootstrap sample
-create_boot_sample <- function(data, n = 21950, B = 500){
-  tictoc::tic("create boot sample")
-  # clean the data
-  data <- data %>%
-    data.table::as.data.table()
-  # create id_dao_df to merge with sample number
-  id_dao_df <- data %>%
-    dplyr::distinct(id_dao) %>%
-    dplyr::arrange(id_dao) %>%
-    tibble::rowid_to_column("value")
-  # sample with replacement 1:n
-  boot_data_list <- replicate(B, sample(1:n, n, replace = TRUE), simplify = FALSE) %>%
-    # Get id_dao values
-    purrr::map(~dplyr::left_join(.x %>% tibble::as_tibble(),
-                                 id_dao_df,
-                                 by = "value") %$%
-                 id_dao %>% as.character() %>% as.list())%>%
-    # Get data for each id_dao
-    purrr::map_depth(2, ~data[id_dao == .x, ]) %>%
-    # combine all data + include idb as new id_dao
-    purrr::map(data.table::rbindlist, use.names = FALSE, idcol = "idb") %>%
-    # Export
-    purrr::walk2(c(1:B) %>% stringr::str_pad(3, pad = "0"),
-                 function(x,y) {
-                   save_data(x,
-                             paste0("DATA/Processed/Aim2/Agreement/Bootstrap/boot_data_", y),
-                             paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/boot_data_", y),
-                             csv = FALSE)
-                 })
-  tictoc::toc()
-  gc()
-  # boot_data_list
-}
-
-
-# Create list of 500 samples
-bootsample_00 <- gs_all_list %>%
-  # Get only  data for "All months"
-  magrittr::extract(1) %>%
-  # Create boot sample for 3 set of df
-  purrr::walk(create_boot_sample)
-
-
-
 create_boot_sample <- function(data, n, B){
   tictoc::tic("create boot sample")
   # convert to tibble to data.table
   data <- data %>% data.table::as.data.table()
-
   # sample with replacement 1:n
   boot_data <- sample(1:n, n, replace = TRUE) %>%
     tibble::as_tibble() %>%
     # Get id_dao values
-    dplyr::left_join(id_dao_df,
-                     by = "value") %$%
+    dplyr::left_join(id_dao_df, by = "value") %$%
     id_dao %>% as.character() %>% as.list() %>%
     # Get data for each id_dao
     purrr::map(~data[id_dao == .x, ]) %>%
     # combine all data + include idb as new id_dao
     data.table::rbindlist(use.names = FALSE, idcol = "idb")
-
   # Export
   B <- B %>% stringr::str_pad(3, pad = "0")
   save_data(boot_data,
@@ -421,7 +369,6 @@ create_boot_sample <- function(data, n, B){
   boot_data
 }
 
-
 # Prepare dataset to run purrr::pmap()
 map_df <- tidyr::crossing(data = gs_all_list[1],
                           n = 21950,
@@ -432,7 +379,12 @@ boot_data_001 <- map_df %>%
   purrr::pmap(create_boot_sample)
 
 
+files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                    pattern = "boot_data_.\\d\\d\\d\\.rds")
 
+
+
+# GET LMER RESULTS: res, res_diff, res_diff_1
 
 
 
