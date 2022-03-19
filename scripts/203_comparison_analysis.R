@@ -372,17 +372,20 @@ create_boot_sample <- function(data, n, B){
 # Prepare dataset to run purrr::pmap()
 map_df <- tidyr::crossing(data = gs_all_list[1],
                           n = 21950,
-                          B = c(3:10))
+                          B = c(11:500))
 # Create list of boot samples
-boot_data_001 <- map_df %>%
+boot_data <- map_df %>%
   # Create boot sample for 3 set of df
-  purrr::pmap(create_boot_sample)
+  purrr::pwalk(create_boot_sample)
 
 
 files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
-                    pattern = "boot_data_.\\d\\d\\d\\.rds")
+                    pattern = "^boot_data_\\d{3}\\.rds$",
+                    full.names = TRUE) %>%
+  sort()
 
-
+boot_data <- files %>%
+  purrr::map(~readr::read_rds(.x))
 
 # GET LMER RESULTS: res, res_diff, res_diff_1
 
