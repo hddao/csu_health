@@ -7,13 +7,8 @@ source("scripts/Functions/save_data.R")
 
 # Load Data ---------------------------------------------------------------
 
-raw_greenspaceall_geometry <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds")
-raw_greenspaceall_geometry_monthly <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_monthly.rds")
-
-# id_dao_df <- raw_greenspaceall_geometry %>%
-#   dplyr::distinct(id_dao) %>%
-#   dplyr::arrange(id_dao) %>%
-#   tibble::rowid_to_column("value")
+# raw_greenspaceall_geometry <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds")
+# raw_greenspaceall_geometry_monthly <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_monthly.rds")
 
 
 # Note: Comparison analysis -----------------------------------------------
@@ -338,7 +333,15 @@ save_data(agreement_stat_df,
 
 # Bootstrap ---------------------------------------------------------------
 
+
+# CREATE BOOT SAMPLES
 set.seed(123)
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
+# create id_dao_df to merge with sample number
+id_dao_df <- gs_all_list[[1]] %>%
+  dplyr::distinct(id_dao) %>%
+  dplyr::arrange(id_dao) %>%
+  tibble::rowid_to_column("value")
 
 
 
@@ -346,7 +349,7 @@ set.seed(123)
 # Create a function to get resample data for bootstrap
 # Set n = number of subject: n = 21950
 # Set B = number of bootstrap sample
-create_boot_sample <- function(data, n = 21950, B = 2){
+create_boot_sample <- function(data, n = 21950, B = 500){
   tictoc::tic("create boot sample")
   # clean the data
   data <- data %>%
@@ -357,30 +360,89 @@ create_boot_sample <- function(data, n = 21950, B = 2){
     dplyr::arrange(id_dao) %>%
     tibble::rowid_to_column("value")
   # sample with replacement 1:n
-  boot_data_list <- replicate(n = B, sample(1:n, n, replace = TRUE), simplify = FALSE) %>%
+  boot_data_list <- replicate(B, sample(1:n, n, replace = TRUE), simplify = FALSE) %>%
     # Get id_dao values
     purrr::map(~dplyr::left_join(.x %>% tibble::as_tibble(),
                                  id_dao_df,
                                  by = "value") %$%
-                 id_dao %>% as.character() %>% as.list()) %>%
+                 id_dao %>% as.character() %>% as.list())%>%
     # Get data for each id_dao
     purrr::map_depth(2, ~data[id_dao == .x, ]) %>%
     # combine all data + include idb as new id_dao
-    purrr::map(data.table::rbindlist, use.names = FALSE, idcol = "idb")
+    purrr::map(data.table::rbindlist, use.names = FALSE, idcol = "idb") %>%
+    # Export
+    purrr::walk2(c(1:B) %>% stringr::str_pad(3, pad = "0"),
+                 function(x,y) {
+                   save_data(x,
+                             paste0("DATA/Processed/Aim2/Agreement/Bootstrap/boot_data_", y),
+                             paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/boot_data_", y),
+                             csv = FALSE)
+                 })
   tictoc::toc()
   gc()
-  boot_data_list
+  # boot_data_list
 }
 
+
 # Create list of 500 samples
-bootsample_00 <- gs_all_pair_list %>%
-  # Get only 1 list of data for "All months"
-  magrittr::extract2(1) %>%
+bootsample_00 <- gs_all_list %>%
+  # Get only  data for "All months"
+  magrittr::extract(1) %>%
   # Create boot sample for 3 set of df
-  purrr::map_depth(1, create_boot_sample)
+  purrr::walk(create_boot_sample)
 
 
 
+create_boot_sample <- function(data, n, B){
+  tictoc::tic("create boot sample")
+  # convert to tibble to data.table
+  data <- data %>% data.table::as.data.table()
+
+  # sample with replacement 1:n
+  boot_data <- sample(1:n, n, replace = TRUE) %>%
+    tibble::as_tibble() %>%
+    # Get id_dao values
+    dplyr::left_join(id_dao_df,
+                     by = "value") %$%
+    id_dao %>% as.character() %>% as.list() %>%
+    # Get data for each id_dao
+    purrr::map(~data[id_dao == .x, ]) %>%
+    # combine all data + include idb as new id_dao
+    data.table::rbindlist(use.names = FALSE, idcol = "idb")
+
+  # Export
+  B <- B %>% stringr::str_pad(3, pad = "0")
+  save_data(boot_data,
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/boot_data_", B),
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/boot_data_", B),
+            csv = FALSE)
+  tictoc::toc()
+  gc()
+  boot_data
+}
+
+
+# Prepare dataset to run purrr::pmap()
+map_df <- tidyr::crossing(data = gs_all_list[1],
+                          n = 21950,
+                          B = c(3:10))
+# Create list of boot samples
+boot_data_001 <- map_df %>%
+  # Create boot sample for 3 set of df
+  purrr::pmap(create_boot_sample)
+
+
+
+
+
+
+# BOOT
+# Create boot sample
+# Get lmer results: res, res_diff, res_diff_1
+# Calculate agreement stats
+# Get quantile 0.025 & 0.975
+
+# PLOT
 
 
 
