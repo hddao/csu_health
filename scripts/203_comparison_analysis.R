@@ -387,7 +387,94 @@ files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
 boot_data <- files %>%
   purrr::map(~readr::read_rds(.x))
 
+
+
+
+
+
 # GET LMER RESULTS: res, res_diff, res_diff_1
+
+# Steps
+# boot_data: read all_df in (list of 500 df)
+# boot_data_pair_list: create pair_list (list of 500 lists of 3 df)
+# lmer_info_xxx: run lmer_info (list of 500 tk)
+# lmer_res_xxx: run lmer_res, save only res_sum as the 2nd element, 1st element is empty
+#     (list of 500 lists of 2 lists)
+# same with diff and diff_1:
+
+
+
+# # List of model info
+# lmer_info <- tibble::tibble(month = rep(c(0:12) %>% stringr::str_pad(2, pad = "0"), each = 3),
+#                             landsat_26953 = rep(c(0,1,1), times = 13),
+#                             nlcd_26953 = rep(c(1,0,1), times = 13),
+#                             modis_26953= rep(c(1,1,0), times = 13)) %>%
+#   split(seq(nrow(.)))
+#
+#
+# #Mixed effects model (1) in the main paper
+# lmer_res <- gs_all_pair_list %>%
+#   unlist(recursive = FALSE) %>%
+#   purrr::map(function(df){
+#     tictoc::tic("lme4::lmer")
+#     res <- lme4::lmer(greenspace ~ raster +
+#                         (1|id_dao) + (1|distance) +
+#                         (1|id_dao:raster) + (1|id_dao:distance) +
+#                         (1|distance:raster),
+#                       data = df,
+#                       control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_sum <- summary(res)
+#     tictoc::toc()
+#     result <- list(res, res_sum)
+#   })
+#
+# # (mixed model approach--modelling the differences) for calculating LOA
+# lmer_res_diff <- gs_all_pair_list %>%
+#   # unlist to create no nested list
+#   unlist(recursive = FALSE) %>%
+#   # run for each df
+#   purrr::map(function(df) {
+#     tictoc::tic("lme4::lmer() for res_diff")
+#     # Edit df to create variable d
+#     df <- df %>%
+#       tidyr::pivot_wider(names_from = raster,
+#                          values_from = greenspace) %>%
+#       dplyr::mutate(d = .[[4]] - .[[5]])
+#     # run lme4::lmer() for res_diff
+#     res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
+#                            data = df,
+#                            control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_diff_sum <- summary(res_diff)
+#     tictoc::toc()
+#     result <- list(res_diff, res_diff_sum)
+#   })
+#
+#
+# lmer_res_diff_1 <- gs_all_pair_list %>%
+#   # unlist to create no nested list
+#   unlist(recursive = FALSE) %>%
+#   # run for each df
+#   purrr::map(function(df) {
+#     tictoc::tic("lme4::lmer() for res_diff_1")
+#     # Edit df to create variable d
+#     df <- df %>%
+#       tidyr::pivot_wider(names_from = raster,
+#                          values_from = greenspace) %>%
+#       dplyr::mutate(d = .[[4]] - .[[5]])
+#     # run lme4::lmer() for res_diff_1
+#     res_diff_1 <- lme4::lmer(d ~ 1 + (1|id_dao),
+#                              data = df,
+#                              control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_diff_1_sum <- summary(res_diff_1)
+#     tictoc::toc()
+#     result <- list(res_diff_1, res_diff_1_sum)
+#   })
+
+
+
+
+
+
 
 
 
