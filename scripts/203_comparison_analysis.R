@@ -334,49 +334,49 @@ save_data(agreement_stat_df,
 # Bootstrap ---------------------------------------------------------------
 
 
-# CREATE BOOT SAMPLES
-set.seed(123)
-gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
-# create id_dao_df to merge with sample number
-id_dao_df <- gs_all_list[[1]] %>%
-  dplyr::distinct(id_dao) %>%
-  dplyr::arrange(id_dao) %>%
-  tibble::rowid_to_column("value")
-
-# Create a function to get resample data for bootstrap
-create_boot_sample <- function(data, n, B){
-  tictoc::tic("create boot sample")
-  # convert to tibble to data.table
-  data <- data %>% data.table::as.data.table()
-  # sample with replacement 1:n
-  boot_data <- sample(1:n, n, replace = TRUE) %>%
-    tibble::as_tibble() %>%
-    # Get id_dao values
-    dplyr::left_join(id_dao_df, by = "value") %$%
-    id_dao %>% as.character() %>% as.list() %>%
-    # Get data for each id_dao
-    purrr::map(~data[id_dao == .x, ]) %>%
-    # combine all data + include idb as new id_dao
-    data.table::rbindlist(use.names = FALSE, idcol = "idb")
-  # Export
-  B <- B %>% stringr::str_pad(3, pad = "0")
-  save_data(boot_data,
-            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/boot_data_", B),
-            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/boot_data_", B),
-            csv = FALSE)
-  tictoc::toc()
-  gc()
-  boot_data
-}
-
-# Prepare dataset to run purrr::pmap()
-map_df <- tidyr::crossing(data = gs_all_list[1],
-                          n = 21950,
-                          B = c(11:500))
-# Create list of boot samples
-boot_data <- map_df %>%
-  # Create boot sample for 3 set of df
-  purrr::pwalk(create_boot_sample)
+# # CREATE BOOT SAMPLES
+# set.seed(123)
+# gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
+# # create id_dao_df to merge with sample number
+# id_dao_df <- gs_all_list[[1]] %>%
+#   dplyr::distinct(id_dao) %>%
+#   dplyr::arrange(id_dao) %>%
+#   tibble::rowid_to_column("value")
+#
+# # Create a function to get resample data for bootstrap
+# create_boot_sample <- function(data, n, B){
+#   tictoc::tic("create boot sample")
+#   # convert to tibble to data.table
+#   data <- data %>% data.table::as.data.table()
+#   # sample with replacement 1:n
+#   boot_data <- sample(1:n, n, replace = TRUE) %>%
+#     tibble::as_tibble() %>%
+#     # Get id_dao values
+#     dplyr::left_join(id_dao_df, by = "value") %$%
+#     id_dao %>% as.character() %>% as.list() %>%
+#     # Get data for each id_dao
+#     purrr::map(~data[id_dao == .x, ]) %>%
+#     # combine all data + include idb as new id_dao
+#     data.table::rbindlist(use.names = FALSE, idcol = "idb")
+#   # Export
+#   B <- B %>% stringr::str_pad(3, pad = "0")
+#   save_data(boot_data,
+#             paste0("DATA/Processed/Aim2/Agreement/Bootstrap/boot_data_", B),
+#             paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/boot_data_", B),
+#             csv = FALSE)
+#   tictoc::toc()
+#   gc()
+#   boot_data
+# }
+#
+# # Prepare dataset to run purrr::pmap()
+# map_df <- tidyr::crossing(data = gs_all_list[1],
+#                           n = 21950,
+#                           B = c(11:500))
+# # Create list of boot samples
+# boot_data <- map_df %>%
+#   # Create boot sample for 3 set of df
+#   purrr::pwalk(create_boot_sample)
 
 
 files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
@@ -384,98 +384,100 @@ files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
                     full.names = TRUE) %>%
   sort()
 
-boot_data <- files %>%
-  purrr::map(~readr::read_rds(.x))
-
-
-
-
 
 
 # GET LMER RESULTS: res, res_diff, res_diff_1
 
-# Steps
-# boot_data: read all_df in (list of 500 df)
-# boot_data_pair_list: create pair_list (list of 500 lists of 3 df)
-# lmer_info_xxx: run lmer_info (list of 500 tk)
-# lmer_res_xxx: run lmer_res, save only res_sum as the 2nd element, 1st element is empty
-#     (list of 500 lists of 2 lists)
-# same with diff and diff_1:
+
+file_location <- files[[3]]
+
+
+# Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
+get_mixed_model_sum <- function(file_location){
+  B <- file_location %>% stringr::str_sub(-7, -5)
+  tictoc::tic(paste0("read data ", B))
+  # read data in
+  data <- file_location %>% readr::read_rds()
+  tictoc::toc()
+
+  # convert to data for pair of raster
+  data_pair <- c("landsat_26953", "nlcd_26953", "modis_26953") %>%
+    purrr::map(~data %>% dplyr::filter(!(raster %in% c(.x))))
+  data_pair_diff <- data_pair %>%
+    purrr::map(~.x %>%
+                 # Edit df to create variable d
+                 tidyr::pivot_wider(names_from = raster,
+                                    values_from = greenspace) %>%
+                 dplyr::mutate(d = .[[5]] - .[[6]]))
+
+  # run lmer
+  # res_sum
+  res_sum <- data_pair %>%
+    purrr::map(function(df){
+      tictoc::tic("lme4::lmer res")
+      res <- lme4::lmer(greenspace ~ raster +
+                          (1|id_dao) + (1|distance) +
+                          (1|id_dao:raster) + (1|id_dao:distance) +
+                          (1|distance:raster),
+
+                        data = df,
+                        control = lme4::lmerControl(optimizer = "bobyqa"))
+      res_sum <- summary(res)
+      tictoc::toc()
+      res_sum
+    })
+  # res_diff_sum
+  res_diff_sum <- data_pair_diff %>%
+    purrr::map(function(df){
+      tictoc::tic("lme4::lmer res_diff")
+      # run lme4::lmer() for res_diff
+      res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
+                             data = df,
+                             control = lme4::lmerControl(optimizer = "bobyqa"))
+      res_diff_sum <- summary(res_diff)
+      tictoc::toc()
+      res_diff_sum
+    })
+  # res_diff_1_sum
+  res_diff_1_sum <- data_pair_diff %>%
+    purrr::map(function(df){
+      tictoc::tic("lme4::lmer res_diff_1")
+      # run lme4::lmer() for res_diff_1
+      res_diff_1 <- lme4::lmer(d ~ (1|id_dao),
+                               data = df,
+                               control = lme4::lmerControl(optimizer = "bobyqa"))
+      res_diff_1_sum <- summary(res_diff_1)
+      tictoc::toc()
+      res_diff_1_sum
+    })
+  # Export
+  tictoc::tic(paste0("Export ", B))
+  save_data(res_sum,
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/res_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/res_sum_", B),
+            csv = FALSE)
+  save_data(res_diff_sum,
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/res_diff_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/res_diff_sum_", B),
+            csv = FALSE)
+  save_data(res_diff_1_sum,
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/res_diff_1_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/res_diff_1_sum_", B),
+            csv = FALSE)
+  tictoc::toc()
+  gc()
+  B
+}
+
+
+# Run and export mixed model
+lmer_sum <- files[1] %>% purrr::map(get_mixed_model_sum)
 
 
 
-# # List of model info
-# lmer_info <- tibble::tibble(month = rep(c(0:12) %>% stringr::str_pad(2, pad = "0"), each = 3),
-#                             landsat_26953 = rep(c(0,1,1), times = 13),
-#                             nlcd_26953 = rep(c(1,0,1), times = 13),
-#                             modis_26953= rep(c(1,1,0), times = 13)) %>%
-#   split(seq(nrow(.)))
-#
-#
-# #Mixed effects model (1) in the main paper
-# lmer_res <- gs_all_pair_list %>%
-#   unlist(recursive = FALSE) %>%
-#   purrr::map(function(df){
-#     tictoc::tic("lme4::lmer")
-#     res <- lme4::lmer(greenspace ~ raster +
-#                         (1|id_dao) + (1|distance) +
-#                         (1|id_dao:raster) + (1|id_dao:distance) +
-#                         (1|distance:raster),
-#                       data = df,
-#                       control = lme4::lmerControl(optimizer = "bobyqa"))
-#     res_sum <- summary(res)
-#     tictoc::toc()
-#     result <- list(res, res_sum)
-#   })
-#
-# # (mixed model approach--modelling the differences) for calculating LOA
-# lmer_res_diff <- gs_all_pair_list %>%
-#   # unlist to create no nested list
-#   unlist(recursive = FALSE) %>%
-#   # run for each df
-#   purrr::map(function(df) {
-#     tictoc::tic("lme4::lmer() for res_diff")
-#     # Edit df to create variable d
-#     df <- df %>%
-#       tidyr::pivot_wider(names_from = raster,
-#                          values_from = greenspace) %>%
-#       dplyr::mutate(d = .[[4]] - .[[5]])
-#     # run lme4::lmer() for res_diff
-#     res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
-#                            data = df,
-#                            control = lme4::lmerControl(optimizer = "bobyqa"))
-#     res_diff_sum <- summary(res_diff)
-#     tictoc::toc()
-#     result <- list(res_diff, res_diff_sum)
-#   })
-#
-#
-# lmer_res_diff_1 <- gs_all_pair_list %>%
-#   # unlist to create no nested list
-#   unlist(recursive = FALSE) %>%
-#   # run for each df
-#   purrr::map(function(df) {
-#     tictoc::tic("lme4::lmer() for res_diff_1")
-#     # Edit df to create variable d
-#     df <- df %>%
-#       tidyr::pivot_wider(names_from = raster,
-#                          values_from = greenspace) %>%
-#       dplyr::mutate(d = .[[4]] - .[[5]])
-#     # run lme4::lmer() for res_diff_1
-#     res_diff_1 <- lme4::lmer(d ~ 1 + (1|id_dao),
-#                              data = df,
-#                              control = lme4::lmerControl(optimizer = "bobyqa"))
-#     res_diff_1_sum <- summary(res_diff_1)
-#     tictoc::toc()
-#     result <- list(res_diff_1, res_diff_1_sum)
-#   })
 
 
-
-
-
-
-
+# CALCULATE AGREEMENT STATS
 
 
 # BOOT
