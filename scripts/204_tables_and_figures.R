@@ -9,7 +9,6 @@ source("scripts/Functions/save_data.R")
 
 # Load Data ---------------------------------------------------------------
 
-agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
 
 # Descriptive table -------------------------------------------------------
@@ -55,12 +54,11 @@ scatterplot <- gs_desc_df %>%
           ggplot2::geom_abline(slope = 1, intercept = 0) +
           ggplot2::xlab(names(df)[4]) +
           ggplot2::ylab(names(df)[5]) +
-          # ggplot2::theme(legend.position="bottom")
-          ggplot2::theme(legend.position = c(.05, .95),
-                         legend.justification = c("left", "top"),
-                         legend.box.just = "left",
-                         legend.margin = margin(6, 6, 6, 6)) +
-          ggplot2::theme_bw() +
+          ggplot2::theme_bw()+
+          ggplot2::theme(legend.position = c(.95, .95),
+                         legend.justification = c("right", "top"),
+                         legend.box.just = "left") +
+          ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
           ggsci::scale_color_nejm()})
     plot_list
   })
@@ -76,23 +74,21 @@ p3 <- scatterplot[[1]][[3]] +
   ggplot2::ylab("NLCD")
 
 
+
 list(p1, p2, p3) %>%
-  purrr::map(~ggplot2::ggsave(plot = .x,
-                              paste0("outputs/figures/Aim2/scatterplot_nejm_A",
-                                     deparse(substitute(.x))
+  purrr::map2(c(1:3),
+              ~ggplot2::ggsave(plot = .x,
+                              paste0("outputs/figures/Aim2/scatterplot_nejm_",
+                                     .y,
                                      ".jpg"),
                               device = "jpeg",
-                              width = 9,
-                              height = 6,
+                              width = 7,
+                              height = 7,
                               units = "in"))
-
-p2
-
-
-
 
 
 # Agreement table ---------------------------------------------------------
+agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
 
 # Bland-Altman plots ------------------------------------------------------
@@ -101,5 +97,6 @@ p2
 
 
 # Plot agreement stats by month -------------------------------------------
+agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
 
