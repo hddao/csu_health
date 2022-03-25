@@ -537,9 +537,6 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
   ul_raw <- 0-(beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
   mean_raw <- 0-beta2.est
 
-
-
-
   # Exported df
   var_stat_df <- tibble::tibble(beta2.est,
                                 sigma2.alpha.est,
