@@ -464,11 +464,11 @@ get_mixed_model_sum <- function(file_location){
 }
 
 # Run and export mixed model
-lmer_sum <- files[1:50] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[51:100] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[101:150] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[151:200] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[201:250] %>% purrr::map(get_mixed_model_sum)
+# lmer_sum <- files[1:50] %>% purrr::map(get_mixed_model_sum)
+# lmer_sum <- files[51:100] %>% purrr::map(get_mixed_model_sum)
+# lmer_sum <- files[101:150] %>% purrr::map(get_mixed_model_sum)
+# lmer_sum <- files[151:200] %>% purrr::map(get_mixed_model_sum)
+# lmer_sum <- files[201:250] %>% purrr::map(get_mixed_model_sum)
 
 lmer_sum <- files[251:300] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[301:350] %>% purrr::map(get_mixed_model_sum)
@@ -492,8 +492,10 @@ files_res_diff_1_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstr
                             full.names = TRUE) %>% sort()
 
 
+files <- list(files_res_sum, files_res_diff_sum, files_res_diff_1_sum)
 
 
+# Create a function to get agreement stats from lmer model summary
 create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
                                    p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
   # beta coefficient (Estimate) for raster
@@ -557,8 +559,70 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
                                 sigma2.epsilon.est,
                                 phi2.beta.est,
                                 CCC, MSD, TDI, CP, CIA,
-                                totalsd, meanb, lcl, ucl, mean_raw, ll_raw, ul_raw)
+                                totalsd, meanb, lcl, ucl, mean_raw, ll_raw, ul_raw) %>%
+    dplyr::rename_all(tolower) %>%
+    # change cp and tdi from list to numeric
+    dplyr::mutate(cp_05 = cp %>% purrr::map(dplyr::first) %>% as.numeric(),
+                  cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
+                  tdi_05 = tdi %>% purrr::map(dplyr::first) %>% as.numeric(),
+                  tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric())
 }
+
+
+# List of model info
+lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
+                            nlcd_26953 = c(1,0,1),
+                            modis_26953= c(1,1,0)) %>%
+  split(seq(nrow(.)))
+
+
+
+
+# Get a df of all lmer model summary
+files <- tibble::tibble(files_res_sum, files_res_diff_sum, files_res_diff_1_sum)
+
+
+
+# Calculate agreement stats and export
+
+
+
+stat <- files %>%
+  purrr::map(dplyr::nth, 1) %>%
+  purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
+    B <- files_res_sum %>% stringr::str_sub(-7, -5)
+    # Create a df for purrr::map()
+    tictoc::tic(paste0("create map_df ", B))
+    map_df <- tibble::tibble(res_sum = files_res_sum %>% readr::read_rds(),
+                             res_diff_sum = files_res_diff_sum %>% readr::read_rds(),
+                             res_diff_1_sum = files_res_diff_1_sum %>% readr::read_rds())
+    tictoc::toc()
+
+    # Create agreement_stat_df
+    tictoc::tic(paste0("create agreement_stat_df ", B))
+    agreement_stat_df <- map_df %>% purrr::pmap(create_agreement_stats) %>%
+      # Added information on the model
+      purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
+      # Combine all df
+      dplyr::bind_rows()
+    tictoc::toc()
+
+    # Export
+    tictoc::tic(paste0("Export ", B))
+    save_data(agreement_stat_df,
+              paste0("DATA/Processed/Aim2/Agreement/Bootstrap/agreement_stat_df_", B),
+              paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/agreement_stat_df_", B),
+              csv = FALSE)
+    tictoc::toc()
+    B
+  })
+
+
+
+
+
+
+
 
 
 # BOOT
