@@ -465,6 +465,7 @@ save_data(agreement_stat_df,
 # # Run and export mixed model
 # lmer_sum <- files %>% purrr::map(get_mixed_model_sum)
 
+# res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD") consequentially
 
 
 
@@ -480,6 +481,7 @@ files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim
                            files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
                                                              pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
                                                              full.names = TRUE) %>% sort())
+
 
 # Create a function to get agreement stats from lmer model summary
 create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
@@ -557,12 +559,13 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
 # List of model info
 lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
                             nlcd_26953 = c(1,0,1),
-                            modis_26953= c(1,1,0)) %>%
+                            modis_26953= c(1,1,0),
+                            pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD")) %>%
   split(seq(nrow(.)))
 
 
 # Calculate agreement stats and export
-stat <- files_df[2, ] %>%
+stat <- files_df[1:2, ] %>%
   purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
     B <- files_res_sum %>% stringr::str_sub(-7, -5)
     # Create a df for purrr::map()
@@ -578,7 +581,9 @@ stat <- files_df[2, ] %>%
       # Added information on the model
       purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
       # Combine all df
-      dplyr::bind_rows()
+      dplyr::bind_rows() %>%
+      # Create a variable for sample id
+      dplyr::mutate(b = B)
     tictoc::toc()
 
     # Export
@@ -599,114 +604,116 @@ stat <- files_df[2, ] %>%
 
 # * Get quantile 0.025 & 0.975 --------------------------------------------
 
+# Create a reference df for raster pair
+pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
+                          nlcd_26953 = c(1,0,1),
+                          modis_26953 = c(1,1,0),
+                          pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
 
 
+files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                    pattern = "^agreement_stat_df_\\d{3}\\.rds$",
+                    full.names = TRUE) %>% sort()
+
+# Combine all agreement_stat_df
+agreement_stat_all_list <- files %>%
+  purrr::map(readr::read_rds) %>%
+  dplyr::bind_rows() %>%
+  # Drop list column
+  dplyr::select(-c(tdi, cp)) %>%
+  dplyr::group_split(landsat_26953, nlcd_26953, modis_26953)
 
 
+quantile_list <- agreement_stat_all_list %>%
+  purrr::map(~apply(.x %>% dplyr::select_if(is.numeric),
+                    MARGIN = 2,
+                    FUN = quantile , probs = c(0.025, 0.975) , na.rm = FALSE ) %>%
+               # t() %>%
+               tibble::as_tibble(rownames = NA) %>%
+               tibble::rownames_to_column()) %>%
+  purrr::map(~.x %>% dplyr::left_join(pair_df, by = c("landsat_26953", "modis_26953", "nlcd_26953")))
 
 
-
-
-
-
-
-# Prepare empty object for later loop
-beta2.est.b <- numeric(B)
-sigma2.alpha.est.b <- sigma2.gamma.est.b <- numeric(B)
-sigma2.alpha.gamma.est.b <- sigma2.alpha.beta.est.b <- numeric(B)
-sigma2.beta.gamma.est.b <- sigma2.epsilon.est.b <- numeric(B)
-phi2.beta.est.b <- numeric(B)
-CCCb <- TDIb <- CPb <- CIAb <- MSDb <- numeric(B)
-meanbb <- totalsdb <- numeric(B)
-lclb <- uclb <- ll_rawb <- ul_rawb <- numeric(B)
-for(l in 1:B){
-  beta2.est.b[l] <- coef(summary(resb[[l]]))[2]
-  sigma2.alpha.est.b[l] <- as.numeric(summary(resb[[l]])$varcor[4])
-  sigma2.gamma.est.b[l] <- as.numeric(summary(resb[[l]])$varcor[5])
-  sigma2.alpha.gamma.est.b[l] <- as.numeric(summary(resb[[l]])$varcor[1])
-  sigma2.alpha.beta.est.b[l] <- as.numeric(summary(resb[[l]])$varcor[2])
-  sigma2.beta.gamma.est.b[l] <- as.numeric(summary(resb[[l]])$varcor[3])
-  sigma2.epsilon.est.b[l] <- as.numeric(summary(resb[[l]])$sigma)^2
-  phi2.beta.est.b[l] <- beta2.est.b[l]^2
-  num_ccc.b <- sigma2.alpha.est.b[l] + sigma2.gamma.est.b[l] + sigma2.alpha.gamma.est.b[l]
-  den_ccc.b <- sigma2.alpha.est.b[l] + phi2.beta.est.b[l] +
-    sigma2.gamma.est.b[l] + sigma2.alpha.gamma.est.b[l] +
-    sigma2.alpha.beta.est.b[l] + sigma2.beta.gamma.est.b[l] +
-    sigma2.epsilon.est.b[l]
-  CCCb[l] <- num_ccc.b/den_ccc.b
-  MSDb[l] <- (beta2.est.b[l]^2) +
-    2*(sigma2.alpha.beta.est.b[l]+sigma2.beta.gamma.est.b[l]+sigma2.epsilon.est.b[l])
-  TDIb[l] <- qnorm((1+p)/2)*sqrt(MSDb[l])
-  CPb[l] <- 1-2*(1-pnorm(delta/sqrt(MSDb[l])))
-  CIAb[l] <- 2*sigma2.epsilon.est.b[l]/MSDb[l]
-  totalsdb[l] <- sqrt(as.numeric(summary(resdb[[l]])$varcor[1])+
-                        as.numeric(summary(resdb[[l]])$varcor[2])+
-                        as.numeric(summary(resdb[[l]])$sigma^2)
-  )
-  meanbb[l] <- coef(summary(resd1b[[l]]))[1]
-  lclb[l] <- meanbb[l] - z*totalsdb[l]
-  uclb[l] <- meanbb[l] + z*totalsdb[l]
-  ll_rawb[l] <- beta2.est.b[l] - z*sqrt(2*sigma2.alpha.beta.est.b[l] +
-                                          2*sigma2.beta.gamma.est.b[l] + 2*sigma2.epsilon.est.b[l])
-  ul_rawb[l] <- beta2.est.b[l] + z*sqrt(2*sigma2.alpha.beta.est.b[l] +
-                                          2*sigma2.beta.gamma.est.b[l] + 2*sigma2.epsilon.est.b[l])
-}
-MSD; quantile(MSDb, c(0.025,0.975))
-## [1] 30.78389
-## 2.5% 97.5%
-## 22.98767 41.65718
-CCC; quantile(CCCb, c(0.025,0.975))
-## [1] 0.676822
-## 2.5% 97.5%
-## 0.5960483 0.7208343
-TDI; quantile(TDIb, c(0.025,0.975))
-## [1] 10.87451
-## 2.5% 97.5%
-## 9.397085 12.650072
-CP; quantile(CPb, c(0.025,0.975))
-## [1] 0.6325038
-## 2.5% 97.5%
-## 0.5614741 0.7029882
-CIA; quantile(CIAb, c(0.025,0.975))
-## [1] 0.6820637
-## 2.5% 97.5%
-## 0.5653724 0.7526850
-lb <- quantile(lclb, c(0.025, 0.975))
-lcl; lb
-## [1] -11.57078
-## 2.5% 97.5%
-## -13.515309 -9.937825
-ub <- quantile(uclb, c(0.025, 0.975))
-ucl; ub
-## [1] 8.378797
-## 2.5% 97.5%
-## 6.372063 10.690036
-meanbbq <- quantile(meanbb, c(0.025, 0.975))
-meanb; meanbbq
-## [1] -1.595991
-## 2.5% 97.5%
-## -2.1307454 -0.9747718
-lrawb <- quantile(ll_rawb, c(0.025, 0.975))
-ll_raw; lrawb
-## [1] -11.86257
-## 2.5% 97.5%
-## -13.73020 -10.33243
-urawb <- quantile(ul_rawb, c(0.025, 0.975))
-ul_raw; urawb
-## [1] 9.297345
-## 2.5% 97.5%
-## 7.372611 11.421008
-b2b <- quantile(beta2.est.b, c(0.025, 0.975))
-beta2.est; b2b
-## [1] -1.282612
-## 2.5% 97.5%
-## -1.8945034 -0.4927148
-
+save_data(quantile_list,
+          "DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list",
+          "DATA/Processed/Aim2/Agreement/Bootstrap/Archived/quantile_list",
+          csv = FALSE)
 
 
 # Bland-Altman plot -------------------------------------------------------
 
+gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_pair_list.rds")
+quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list.rds")
+agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
+# Create a reference df for raster pair
+pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
+                          nlcd_26953 = c(1,0,1),
+                          modis_26953 = c(1,1,0),
+                          pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
+
+
+# Create gs_diff_list
+gs_diff_list <- gs_all_pair_list[[1]] %>%
+    purrr::map(~.x %>%
+                 # Edit df to create variable d
+                 tidyr::pivot_wider(names_from = raster,
+                                    values_from = greenspace) %>%
+                 dplyr::mutate(d = .[[4]] - .[[5]],
+                               m = (.[[4]] + .[[5]])/2) %>%
+                 dplyr::rename(`Radius (m)` = distance))
+# flip the sign for 2 gs df
+gs_diff_list[[2]] <- gs_diff_list[[2]] %>%
+  dplyr::mutate(d = 0 - d)
+
+# Create agreement_list
+agreement_list <- agreement_stat_df %>%
+  readr::read_rds() %>%
+  dplyr::rename_all(base::tolower) %>%
+  # filter to agreement stats for all months
+  dplyr::filter(month == "00") %>%
+  # change cp and tdi from list to numeric
+  dplyr::mutate(cp_05 = cp %>% purrr::map(dplyr::first) %>% as.numeric(),
+                cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
+                tdi_05 = tdi %>% purrr::map(dplyr::first) %>% as.numeric(),
+                tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric()) %>%
+  # Add pair value
+  dplyr::left_join(pair_df, by = c("landsat_26953", "modis_26953", "nlcd_26953")) %>%
+  # Drop list column
+  dplyr::select(-c(tdi, cp)) %>%
+  # Arrange by raster pair
+  dplyr::arrange(landsat_26953, nlcd_26953, modis_26953) %>%
+  # Split
+  dplyr::group_split(landsat_26953, nlcd_26953, modis_26953)
+
+
+
+gs_diff_df <- gs_diff_list[[1]]
+quantile_df <- quantile_list[[1]]
+agreement_df <-
+
+
+ggplot2::ggplot() +
+  ggplot2::theme_bw() +
+  # ggplot2::geom_point(data = gs_diff_df,
+  #                     ggplot2::aes(x = m,
+  #                                  y = d,
+  #                                  colour = `Radius (m)`),
+  #                     shape = 4) +
+  # ggplot2::theme(legend.position = c(.95, .95),
+  #                legend.justification = c("right", "top"),
+  #                legend.box.just = "left") +
+  # ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+  ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
+  ggplot2::xlim(0, 0.6) +
+  ggplot2::ylim(-0.6, 0.6) +
+  # Plot Bland-Altman lines
+  ggplot2::geom_hline(ggplot2::aes(yintercept = quantile_df$meanb[1])) +
+  ggplot2::annotate(' ',
+                    x = c(-Inf, Inf),
+                    ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
+                    alpha = 0.4, fill = 'blue') +
+  ggsci::scale_colour_nejm()
 
 
 
