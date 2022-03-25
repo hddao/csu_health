@@ -54,7 +54,7 @@ scatterplot <- gs_desc_df %>%
           ggplot2::geom_abline(slope = 1, intercept = 0) +
           ggplot2::xlab(names(df)[4]) +
           ggplot2::ylab(names(df)[5]) +
-          ggplot2::theme_bw()+
+          ggplot2::theme_bw() +
           ggplot2::theme(legend.position = c(.95, .95),
                          legend.justification = c("right", "top"),
                          legend.box.just = "left") +
@@ -91,8 +91,8 @@ list(p1, p2, p3) %>%
 agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
 pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
-                          modis_26953 = c(1,0,1),
-                          nlcd_26953 = c(1,1,0),
+                          nlcd_26953 = c(1,0,1),
+                          modis_26953 = c(1,1,0),
                           pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
 
 agreement_stat_df <- agreement_stat_df %>%
