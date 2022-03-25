@@ -170,7 +170,8 @@ plot <- agreement_by_month %>%
       purrr::map(~ggplot2::ggplot(data = .x,
                                   ggplot2::aes(x = Month,
                                                y = Value,
-                                               group = `Agreement Statistics`)) +
+                                               group = `Agreement Statistics`,
+                                               colour = `Agreement Statistics`)) +
                    ggplot2::geom_point() +
                    ggplot2::geom_line() +
                    ggplot2::ggtitle(df$pair[1]) +
