@@ -710,16 +710,16 @@ ba_plot <- map_df %>%
   purrr::pwalk(function(gs_diff_df, agreement_df, quantile_df, ylab, suffix) {
     ggplot2::ggplot() +
       ggplot2::theme_bw() +
-      # ggplot2::geom_point(data = gs_diff_df,
-      #                     ggplot2::aes(x = m,
-      #                                  y = d,
-      #                                  colour = `Radius (m)`),
-      #                     shape = 4, size = 0.4,
-      #                     ) +
-      # ggplot2::theme(legend.position = c(.95, .95),
-      #                legend.justification = c("right", "top"),
-      #                legend.box.just = "left") +
-      # ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+      ggplot2::geom_point(data = gs_diff_df,
+                          ggplot2::aes(x = m,
+                                       y = d,
+                                       colour = `Radius (m)`),
+                          shape = 4, size = 0.4,
+                          ) +
+      ggplot2::theme(legend.position = c(.95, .95),
+                     legend.justification = c("right", "top"),
+                     legend.box.just = "left") +
+      ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
       ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
       ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab)) +
       # ggplot2::xlim(0, 0.6) +
@@ -733,24 +733,21 @@ ba_plot <- map_df %>%
                           colour = blue_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        # ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
-                        ymin = 0.3, ymax = 0.35,
+                        ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
                         alpha = 0.2, fill = blue_color) +
       # ucl
       ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$ucl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        # ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
-                        ymin = 0.4, ymax = 0.45,
+                        ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
                         alpha = 0.2, fill = red_color) +
       # lcl
       ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$lcl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        # ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
-                        ymin = 0.2, ymax = 0.25,
+                        ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
                         alpha = 0.2, fill = red_color) +
       ggsci::scale_colour_nejm()
 
