@@ -379,18 +379,12 @@ save_data(agreement_stat_df,
 #   purrr::pwalk(create_boot_sample)
 
 
+# GET LMER RESULTS: res, res_diff, res_diff_1
+
 files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
                     pattern = "^boot_data_\\d{3}\\.rds$",
                     full.names = TRUE) %>%
   sort()
-
-
-
-# GET LMER RESULTS: res, res_diff, res_diff_1
-
-
-file_location <- files[[3]]
-
 
 # Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
 get_mixed_model_sum <- function(file_location){
@@ -416,8 +410,8 @@ get_mixed_model_sum <- function(file_location){
     purrr::map(function(df){
       tictoc::tic("lme4::lmer res")
       res <- lme4::lmer(greenspace ~ raster +
-                          (1|id_dao) + (1|distance) +
-                          (1|id_dao:raster) + (1|id_dao:distance) +
+                          (1|idb) + (1|distance) +
+                          (1|idb:raster) + (1|idb:distance) +
                           (1|distance:raster),
 
                         data = df,
@@ -431,7 +425,7 @@ get_mixed_model_sum <- function(file_location){
     purrr::map(function(df){
       tictoc::tic("lme4::lmer res_diff")
       # run lme4::lmer() for res_diff
-      res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
+      res_diff <- lme4::lmer(d ~ (1|idb) + (1|distance),
                              data = df,
                              control = lme4::lmerControl(optimizer = "bobyqa"))
       res_diff_sum <- summary(res_diff)
@@ -443,7 +437,7 @@ get_mixed_model_sum <- function(file_location){
     purrr::map(function(df){
       tictoc::tic("lme4::lmer res_diff_1")
       # run lme4::lmer() for res_diff_1
-      res_diff_1 <- lme4::lmer(d ~ (1|id_dao),
+      res_diff_1 <- lme4::lmer(d ~ (1|idb),
                                data = df,
                                control = lme4::lmerControl(optimizer = "bobyqa"))
       res_diff_1_sum <- summary(res_diff_1)
@@ -469,15 +463,92 @@ get_mixed_model_sum <- function(file_location){
   B
 }
 
-
 # Run and export mixed model
-lmer_sum <- files[1] %>% purrr::map(get_mixed_model_sum)
-
+lmer_sum <- files[1:50] %>% purrr::map(get_mixed_model_sum)
 
 
 
 
 # CALCULATE AGREEMENT STATS
+
+files_res_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                    pattern = "^res_sum_\\d{3}\\.rds$",
+                    full.names = TRUE) %>% sort()
+files_res_diff_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                            pattern = "^res_diff_sum_\\d{3}\\.rds$",
+                            full.names = TRUE) %>% sort()
+files_res_diff_1_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                            pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
+                            full.names = TRUE) %>% sort()
+
+
+
+
+create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
+                                   p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
+  # beta coefficient (Estimate) for raster
+  beta2.est <- coef(res_sum)[2]
+  # varcor for idb
+  sigma2.alpha.est <- res_sum$varcor$idb %>% attr("stddev") %>% as.numeric()
+  # varcor for distance
+  sigma2.gamma.est <- res_sum$varcor$distance %>% attr("stddev") %>% as.numeric()
+  # varcor for idb:distance
+  sigma2.alpha.gamma.est <- res_sum$varcor$`idb:distance` %>% attr("stddev") %>% as.numeric()
+  # varcor for idb:raster
+  sigma2.alpha.beta.est <- res_sum$varcor$`idb:raster` %>% attr("stddev") %>% as.numeric()
+  # varcor for distance:raster
+  sigma2.beta.gamma.est <- res_sum$varcor$`distance:raster` %>% attr("stddev") %>% as.numeric()
+  # varcor for error (residual)
+  sigma2.epsilon.est <- as.numeric(res_sum$sigma)^2
+  # squared beta coefficient (Estimate) for raster
+  phi2.beta.est <- beta2.est^2
+
+  #Concordance correlation coefficient
+  num_ccc <- sigma2.alpha.est + sigma2.gamma.est + sigma2.alpha.gamma.est
+  den_ccc <- sigma2.alpha.est + phi2.beta.est + sigma2.gamma.est +
+    sigma2.alpha.gamma.est + sigma2.alpha.beta.est +
+    sigma2.beta.gamma.est + sigma2.epsilon.est
+  CCC <- num_ccc/den_ccc
+  #Mean squared deviation
+  MSD <- (beta2.est^2) + 2*(sigma2.alpha.beta.est+sigma2.beta.gamma.est+sigma2.epsilon.est)
+  #Total deviation index
+  # p <- c(0.90, 0.95)
+  TDI <- (qnorm((1+p)/2)*sqrt(MSD)) %>% list()
+  #Coverage probability
+  # delta <- c(0.05, 0.1)
+  CP <- (1-2*(1-pnorm(delta/sqrt(MSD)))) %>% list()
+  #Coefficient of individual agreement
+  CIA <- 2*sigma2.epsilon.est/MSD
+
+  # Limits of agreement (mixed model approach--modelling the differences)
+  # totalsd
+  totalsd <- sqrt(as.numeric(res_diff_sum$varcor[1]) +
+                    as.numeric(res_diff_sum$varcor[2]) +
+                    as.numeric(res_diff_sum$sigma^2))
+  # meanb
+  meanb <- coef(res_diff_1_sum)[1]
+  # lcl; ucl
+  # alpha <- 0.05
+  z <- qnorm(1-alpha/2)
+  lcl <- meanb - z*totalsd
+  ucl <- meanb + z*totalsd
+  #limits of agreement (mixed model approach--raw data)
+  ll_raw <- beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
+  ul_raw <- beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
+  mean_raw <- beta2.est
+
+  # Exported df
+  var_stat_df <- tibble::tibble(beta2.est,
+                                sigma2.alpha.est,
+                                sigma2.gamma.est,
+                                sigma2.alpha.gamma.est,
+                                sigma2.alpha.beta.est,
+                                sigma2.beta.gamma.est,
+                                sigma2.epsilon.est,
+                                phi2.beta.est,
+                                CCC, MSD, TDI, CP, CIA,
+                                totalsd, meanb, lcl, ucl, mean_raw, ll_raw, ul_raw)
+}
 
 
 # BOOT
@@ -491,71 +562,6 @@ lmer_sum <- files[1] %>% purrr::map(get_mixed_model_sum)
 
 
 
-
-# Prepare for loop: Set empty list for model result
-resb <- resdb <- resd1b <- list()
-for(l in 1:B){
-  # ind: sample with replace subject
-  ind <- sample(1:n, n, replace = TRUE)
-  # Prepare for loop: Set empty list boot
-  subject_boot <- list()
-  for(j in 1:n){
-    # Get subject data from original data (wide format)
-    subject_boot[[j]] <- data[data$PatientID==ind[j],c(1,3,5,12)]
-  }
-  # Combine all subject data
-  datab <- rbind(subject_boot[[1]], subject_boot[[2]], subject_boot[[3]], subject_boot[[4]],
-                 subject_boot[[5]], subject_boot[[6]], subject_boot[[7]], subject_boot[[8]],
-                 subject_boot[[9]], subject_boot[[10]], subject_boot[[11]], subject_boot[[12]],
-                 subject_boot[[13]], subject_boot[[14]], subject_boot[[15]], subject_boot[[16]],
-                 subject_boot[[17]], subject_boot[[18]], subject_boot[[19]], subject_boot[[20]],
-                 subject_boot[[21]]
-  )
-  # prepare outcome for long data format
-  yb <- as.vector(c(datab$RRox,datab$RRcb))
-  # prepare NEW patientID
-  aux <- c(rep(1,nrow(subject_boot[[1]])),rep(2,nrow(subject_boot[[2]])),
-           rep(3,nrow(subject_boot[[3]])),rep(4,nrow(subject_boot[[4]])),
-           rep(5,nrow(subject_boot[[5]])),rep(6,nrow(subject_boot[[6]])),
-           rep(7,nrow(subject_boot[[7]])),rep(8,nrow(subject_boot[[8]])),
-           rep(9,nrow(subject_boot[[9]])),rep(10,nrow(subject_boot[[10]])),
-           rep(11,nrow(subject_boot[[11]])),rep(12,nrow(subject_boot[[12]])),
-           rep(13,nrow(subject_boot[[13]])),rep(14,nrow(subject_boot[[14]])),
-           rep(15,nrow(subject_boot[[15]])),rep(16,nrow(subject_boot[[16]])),
-           rep(17,nrow(subject_boot[[17]])),rep(18,nrow(subject_boot[[18]])),
-           rep(19,nrow(subject_boot[[19]])),rep(20,nrow(subject_boot[[20]])),
-           rep(21,nrow(subject_boot[[21]]))
-  )
-  # prepare NEW patientID for long data format
-  subjectb <- as.vector(as.factor(c(aux,aux)))
-  # prepare device for long data format
-  deviceb <- as.vector(as.factor(c(rep(1,nrow(datab)),rep(2,nrow(datab)))))
-  # prepare activity for long data format
-  activityb <- c(as.factor(datab$Activity),as.factor(datab$Activity))
-  # prepare d = diffference for long data format
-  db <- yb[(nrow(datab)+1):(2*nrow(datab))] - yb[1:nrow(datab)]
-  # Create long data
-  copdb <- data.frame(yb, subjectb, deviceb, activityb, db)
-  copdb$deviceb <- as.factor(copdb$deviceb)
-  copdb$activityb <- as.factor(copdb$activityb)
-  copdb$subjectb <- as.factor(copdb$subjectb)
-  # Run lme4::lmer() res
-  resb[[l]] <- lmer(yb ~ deviceb+(1|subjectb)+(1|activityb)+
-                      (1|subjectb:activityb)+(1|subjectb:deviceb)+(1|activityb:deviceb),
-                    data = copdb,
-                    control = lmerControl(optimizer = "bobyqa")
-  )
-  # Run lme4::lmer() res_diff
-  resdb[[l]] <- lmer(db ~ (1|subjectb) + (1|activityb),
-                     data = copdb,
-                     control = lmerControl(optimizer = "bobyqa")
-  )
-  # Run lme4::lmer() res_diff_1
-  resd1b[[l]] <- lmer(db ~ 1 + (1|subjectb),
-                      data = copdb,
-                      control = lmerControl(optimizer = "bobyqa")
-  )
-}
 
 # Prepare empty object for later loop
 beta2.est.b <- numeric(B)
