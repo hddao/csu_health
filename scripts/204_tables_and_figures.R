@@ -90,10 +90,12 @@ list(p1, p2, p3) %>%
 # Agreement table ---------------------------------------------------------
 agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
+# Create a reference df for raster pair
 pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
                           nlcd_26953 = c(1,0,1),
                           modis_26953 = c(1,1,0),
                           pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
+
 
 agreement_stat_df <- agreement_stat_df %>%
   readr::read_rds() %>%
