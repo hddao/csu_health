@@ -695,6 +695,12 @@ agreement_list[[2]] <- agreement_list[[2]] %>%
                    function(x) {x <- (0 - x)})
 
 
+# flip the sign for the pair "MODIS - Landsat 8"
+quantile_list[[2]] <- quantile_list[[2]] %>%
+  dplyr::mutate_at(c("meanb", "lcl", "ucl", "mean_raw", "ll_raw", "ul_raw"),
+                   function(x) {x <- (0 - x)})
+
+
 
 # Create ylab_list
 ylab_list <- c("MODIS - NLCD", "MODIS - Landsat 8", "Landsat 8 - NLCD")
