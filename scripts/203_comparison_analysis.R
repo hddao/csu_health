@@ -533,9 +533,12 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
   lcl <- meanb - z*totalsd
   ucl <- meanb + z*totalsd
   #limits of agreement (mixed model approach--raw data)
-  ll_raw <- beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
-  ul_raw <- beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
-  mean_raw <- beta2.est
+  ll_raw <- 0-(beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
+  ul_raw <- 0-(beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
+  mean_raw <- 0-beta2.est
+
+
+
 
   # Exported df
   var_stat_df <- tibble::tibble(beta2.est,
@@ -668,7 +671,7 @@ gs_diff_list <- gs_all_pair_list[[1]] %>%
                  dplyr::mutate(d = .[[4]] - .[[5]],
                                m = (.[[4]] + .[[5]])/2) %>%
                  dplyr::rename(`Radius (m)` = distance))
-# flip the sign for 2 gs df
+# flip the sign for the pair "MODIS - Landsat 8"
 gs_diff_list[[2]] <- gs_diff_list[[2]] %>%
   dplyr::mutate(d = 0 - d)
 
@@ -689,6 +692,12 @@ agreement_list <- agreement_stat_df %>%
   dplyr::arrange(landsat_26953, nlcd_26953, modis_26953) %>%
   # Split
   dplyr::group_split(landsat_26953, nlcd_26953, modis_26953)
+# flip the sign for the pair "MODIS - Landsat 8"
+agreement_list[[2]] <- agreement_list[[2]] %>%
+  dplyr::mutate_at(c("meanb", "lcl", "ucl", "mean_raw", "ll_raw", "ul_raw"),
+                   function(x) {x <- (0 - x)})
+
+
 
 # Create ylab_list
 ylab_list <- c("MODIS - NLCD", "MODIS - Landsat 8", "Landsat 8 - NLCD")
@@ -710,19 +719,17 @@ ba_plot <- map_df %>%
   purrr::pwalk(function(gs_diff_df, agreement_df, quantile_df, ylab, suffix) {
     ggplot2::ggplot() +
       ggplot2::theme_bw() +
-      ggplot2::geom_point(data = gs_diff_df,
-                          ggplot2::aes(x = m,
-                                       y = d,
-                                       colour = `Radius (m)`),
-                          shape = 4, size = 0.4,
-                          ) +
-      ggplot2::theme(legend.position = c(.95, .95),
-                     legend.justification = c("right", "top"),
-                     legend.box.just = "left") +
-      ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
-      ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
-      ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab)) +
-      # ggplot2::xlim(0, 0.6) +
+      # ggplot2::geom_point(data = gs_diff_df,
+      #                     ggplot2::aes(x = m,
+      #                                  y = d,
+      #                                  colour = `Radius (m)`),
+      #                     shape = 4, size = 0.4,
+      #                     ) +
+      # ggplot2::theme(legend.position = c(.95, .95),
+      #                legend.justification = c("right", "top"),
+      #                legend.box.just = "left") +
+      # ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+      ggplot2::xlim(0, 0.6) +
       # ggplot2::ylim(-0.6, 0.6) +
       # Plot Bland-Altman lines
       # Horizontal guide line of y = 0
@@ -733,41 +740,45 @@ ba_plot <- map_df %>%
                           colour = blue_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
+                        # ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
+                        ymin = agreement_df$meanb[1]-0.05, ymax = agreement_df$meanb[1]+0.05,
                         alpha = 0.2, fill = blue_color) +
       # ucl
       ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$ucl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
+                        # ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
+                        ymin = agreement_df$ucl[1]-0.05, ymax = agreement_df$ucl[1]+0.05,
                         alpha = 0.2, fill = red_color) +
       # lcl
       ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$lcl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
+                        # ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
+                        ymin = agreement_df$lcl[1]-0.05, ymax = agreement_df$lcl[1]+0.05,
                         alpha = 0.2, fill = red_color) +
-      ggsci::scale_colour_nejm()
+      ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
+      ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab))
 
     # Export
     ggplot2::ggsave(paste0("outputs/figures/Aim2/blandaltman_",
                            suffix,
                            ".jpg"),
                     device = "jpeg",
-                    width = 5,
-                    height = 5,
+                    width = 6,
+                    height = 6,
                     units = "in")
   })
 
 
 
-# gs_diff_df <- gs_diff_list[[1]]
-# quantile_df <- quantile_list[[1]]
-# agreement_df <- agreement_list[[1]]
-# ylab <- ylab_list[[1]]
-# suffix <- suffix_list[[1]]
+gs_diff_df <- gs_diff_list[[2]]
+quantile_df <- quantile_list[[2]]
+agreement_df <- agreement_list[[2]]
+ylab <- ylab_list[[2]]
+suffix <- suffix_list[[2]]
 
 
 
