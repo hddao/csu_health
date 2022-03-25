@@ -563,7 +563,6 @@ lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
                             pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD")) %>%
   split(seq(nrow(.)))
 
-
 # Calculate agreement stats and export
 stat <- files_df[1:2, ] %>%
   purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
@@ -646,12 +645,18 @@ gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_pair_l
 quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list.rds")
 agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
-# Create a reference df for raster pair
-pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
-                          nlcd_26953 = c(1,0,1),
-                          modis_26953 = c(1,1,0),
-                          pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
 
+# # Get color palette
+# scales::show_col(ggsci::pal_nejm(alpha = 0.7)(8))
+# scales::show_col(ggsci::pal_jama(alpha = 0.7)(7))
+
+# nejm
+red_color <- "#BC3C29B2"
+blue_color <- "#0072B5B2"
+
+# # jama
+# red_color <- "#B24745B2"
+# blue_color <- "#00A1D5B2"
 
 
 # Create gs_diff_list
@@ -678,8 +683,6 @@ agreement_list <- agreement_stat_df %>%
                 cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
                 tdi_05 = tdi %>% purrr::map(dplyr::first) %>% as.numeric(),
                 tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric()) %>%
-  # Add pair value
-  dplyr::left_join(pair_df, by = c("landsat_26953", "modis_26953", "nlcd_26953")) %>%
   # Drop list column
   dplyr::select(-c(tdi, cp)) %>%
   # Arrange by raster pair
@@ -687,53 +690,91 @@ agreement_list <- agreement_stat_df %>%
   # Split
   dplyr::group_split(landsat_26953, nlcd_26953, modis_26953)
 
+# Create ylab_list
+ylab_list <- c("MODIS - NLCD", "MODIS - Landsat 8", "Landsat 8 - NLCD")
+
+# Create suffix_list
+suffix_list <- c("MODIS - NLCD", "MODIS - Landsat 8", "Landsat 8 - NLCD") %>%
+  stringr::str_replace_all(pattern = " ", replacement = "_")
 
 
-gs_diff_df <- gs_diff_list[[1]]
-quantile_df <- quantile_list[[1]]
-agreement_df <-
+# Create map_df for purrr::pwalk()
+map_df <- tibble::tibble(gs_diff_df = gs_diff_list,
+                         agreement_df = agreement_list,
+                         quantile_df = quantile_list,
+                         ylab = ylab_list,
+                         suffix = suffix_list)
+
+# Create BA plots and export with purrr::pwalk()
+ba_plot <- map_df %>%
+  purrr::pwalk(function(gs_diff_df, agreement_df, quantile_df, ylab, suffix) {
+    ggplot2::ggplot() +
+      ggplot2::theme_bw() +
+      # ggplot2::geom_point(data = gs_diff_df,
+      #                     ggplot2::aes(x = m,
+      #                                  y = d,
+      #                                  colour = `Radius (m)`),
+      #                     shape = 4, size = 0.4,
+      #                     ) +
+      # ggplot2::theme(legend.position = c(.95, .95),
+      #                legend.justification = c("right", "top"),
+      #                legend.box.just = "left") +
+      # ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+      ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
+      ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab)) +
+      # ggplot2::xlim(0, 0.6) +
+      # ggplot2::ylim(-0.6, 0.6) +
+      # Plot Bland-Altman lines
+      # Horizontal guide line of y = 0
+      ggplot2::geom_hline(ggplot2::aes(yintercept = 0),
+                          colour = "grey50", size = 1.0) +
+      # meanb
+      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$meanb[1]),
+                          colour = blue_color, size = 1.0, linetype = "longdash") +
+      ggplot2::annotate('ribbon',
+                        x = c(-Inf, Inf),
+                        # ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
+                        ymin = 0.3, ymax = 0.35,
+                        alpha = 0.2, fill = blue_color) +
+      # ucl
+      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$ucl[1]),
+                          colour = red_color, size = 1.0, linetype = "longdash") +
+      ggplot2::annotate('ribbon',
+                        x = c(-Inf, Inf),
+                        # ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
+                        ymin = 0.4, ymax = 0.45,
+                        alpha = 0.2, fill = red_color) +
+      # lcl
+      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$lcl[1]),
+                          colour = red_color, size = 1.0, linetype = "longdash") +
+      ggplot2::annotate('ribbon',
+                        x = c(-Inf, Inf),
+                        # ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
+                        ymin = 0.2, ymax = 0.25,
+                        alpha = 0.2, fill = red_color) +
+      ggsci::scale_colour_nejm()
+
+    # Export
+    ggplot2::ggsave(paste0("outputs/figures/Aim2/blandaltman_",
+                           suffix,
+                           ".jpg"),
+                    device = "jpeg",
+                    width = 5,
+                    height = 5,
+                    units = "in")
+  })
 
 
-ggplot2::ggplot() +
-  ggplot2::theme_bw() +
-  # ggplot2::geom_point(data = gs_diff_df,
-  #                     ggplot2::aes(x = m,
-  #                                  y = d,
-  #                                  colour = `Radius (m)`),
-  #                     shape = 4) +
-  # ggplot2::theme(legend.position = c(.95, .95),
-  #                legend.justification = c("right", "top"),
-  #                legend.box.just = "left") +
-  # ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
-  ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
-  ggplot2::xlim(0, 0.6) +
-  ggplot2::ylim(-0.6, 0.6) +
-  # Plot Bland-Altman lines
-  ggplot2::geom_hline(ggplot2::aes(yintercept = quantile_df$meanb[1])) +
-  ggplot2::annotate(' ',
-                    x = c(-Inf, Inf),
-                    ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
-                    alpha = 0.4, fill = 'blue') +
-  ggsci::scale_colour_nejm()
+
+# gs_diff_df <- gs_diff_list[[1]]
+# quantile_df <- quantile_list[[1]]
+# agreement_df <- agreement_list[[1]]
+# ylab <- ylab_list[[1]]
+# suffix <- suffix_list[[1]]
 
 
 
 
-
-
-# Bland-Altman plot
-m <- (copd$y[1:385] + copd$y[386:770])/2
-plot(m, d, xlab = "Average", ylab = "Difference", ylim = c(-30,30))
-abline(h=ucl, lwd = 2, lty = 2)
-abline(h=ub[1], lwd = 3, lty = 3)
-abline(h=ub[2], lwd = 3, lty = 3)
-abline(h=lcl, lwd = 2, lty = 2)
-abline(h=lb[1], lwd = 3, lty = 3)
-abline(h=lb[2], lwd = 3, lty = 3)
-abline(h=0, lwd = 2)
-abline(h=meanb, lwd = 2, lty = 2)
-abline(h=meanbbq[1], lwd = 3, lty = 3)
-abline(h=meanbbq[2], lwd = 3, lty = 3)
 
 
 # Agreement, 3 raster -----------------------------------------------------
