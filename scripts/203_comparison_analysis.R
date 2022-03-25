@@ -465,6 +465,16 @@ get_mixed_model_sum <- function(file_location){
 
 # Run and export mixed model
 lmer_sum <- files[1:50] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[51:100] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[101:150] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[151:200] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[201:250] %>% purrr::map(get_mixed_model_sum)
+
+lmer_sum <- files[251:300] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[301:350] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[351:400] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[401:450] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
 
 
