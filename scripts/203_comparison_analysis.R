@@ -481,19 +481,16 @@ lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
 # CALCULATE AGREEMENT STATS
 
-files_res_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
-                    pattern = "^res_sum_\\d{3}\\.rds$",
-                    full.names = TRUE) %>% sort()
-files_res_diff_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
-                            pattern = "^res_diff_sum_\\d{3}\\.rds$",
-                            full.names = TRUE) %>% sort()
-files_res_diff_1_sum <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
-                            pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
-                            full.names = TRUE) %>% sort()
-
-
-files <- list(files_res_sum, files_res_diff_sum, files_res_diff_1_sum)
-
+# Get a df of all lmer model summary
+files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                                                      pattern = "^res_sum_\\d{3}\\.rds$",
+                                                      full.names = TRUE) %>% sort(),
+                           files_res_diff_sum = list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                                                           pattern = "^res_diff_sum_\\d{3}\\.rds$",
+                                                           full.names = TRUE) %>% sort(),
+                           files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+                                                             pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
+                                                             full.names = TRUE) %>% sort())
 
 # Create a function to get agreement stats from lmer model summary
 create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
@@ -568,7 +565,6 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
                   tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric())
 }
 
-
 # List of model info
 lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
                             nlcd_26953 = c(1,0,1),
@@ -576,19 +572,8 @@ lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
   split(seq(nrow(.)))
 
 
-
-
-# Get a df of all lmer model summary
-files <- tibble::tibble(files_res_sum, files_res_diff_sum, files_res_diff_1_sum)
-
-
-
 # Calculate agreement stats and export
-
-
-
-stat <- files %>%
-  # purrr::map(dplyr::nth, 1) %>%
+stat <- files_df[2, ] %>%
   purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
     B <- files_res_sum %>% stringr::str_sub(-7, -5)
     # Create a df for purrr::map()
@@ -614,6 +599,7 @@ stat <- files %>%
               paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/agreement_stat_df_", B),
               csv = FALSE)
     tictoc::toc()
+    gc()
     B
   })
 
