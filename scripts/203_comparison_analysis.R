@@ -653,6 +653,7 @@ pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
                           pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
 
 
+
 # Create gs_diff_list
 gs_diff_list <- gs_all_pair_list[[1]] %>%
     purrr::map(~.x %>%
