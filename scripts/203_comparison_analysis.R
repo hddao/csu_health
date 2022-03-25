@@ -588,7 +588,7 @@ files <- tibble::tibble(files_res_sum, files_res_diff_sum, files_res_diff_1_sum)
 
 
 stat <- files %>%
-  purrr::map(dplyr::nth, 1) %>%
+  # purrr::map(dplyr::nth, 1) %>%
   purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
     B <- files_res_sum %>% stringr::str_sub(-7, -5)
     # Create a df for purrr::map()
