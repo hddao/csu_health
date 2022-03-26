@@ -5,6 +5,10 @@ save_data <- function(dataset.name, file.location, file.location.arc,
 
   # CSV
   if(csv) {
+    # utils::write.csv(dataset.name, paste0(file.location, ".csv"), fileEncoding = "UTF-8")
+    # utils::write.csv(dataset.name,
+    #                  paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv"),
+    #                  fileEncoding = "UTF-8")
     readr::write_csv(dataset.name, paste0(file.location, ".csv"))
     readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv"))
   }
