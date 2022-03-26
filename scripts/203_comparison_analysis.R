@@ -533,8 +533,8 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
   lcl <- meanb - z*totalsd
   ucl <- meanb + z*totalsd
   #limits of agreement (mixed model approach--raw data)
-  ll_raw <- 0-(beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
-  ul_raw <- 0-(beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
+  ll_raw <- 0-(beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
+  ul_raw <- 0-(beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est))
   mean_raw <- 0-beta2.est
 
   # Exported df
@@ -564,7 +564,7 @@ lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
   split(seq(nrow(.)))
 
 # Calculate agreement stats and export
-stat <- files_df[1:2, ] %>%
+stat <- files_df %>%
   purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
     B <- files_res_sum %>% stringr::str_sub(-7, -5)
     # Create a df for purrr::map()
@@ -743,24 +743,24 @@ ba_plot <- map_df %>%
                           colour = blue_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        # ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
-                        ymin = agreement_df$meanb[1]-0.05, ymax = agreement_df$meanb[1]+0.05,
+                        ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
+                        # ymin = agreement_df$meanb[1]-0.05, ymax = agreement_df$meanb[1]+0.05,
                         alpha = 0.2, fill = blue_color) +
       # ucl
       ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$ucl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        # ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
-                        ymin = agreement_df$ucl[1]-0.05, ymax = agreement_df$ucl[1]+0.05,
+                        ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
+                        # ymin = agreement_df$ucl[1]-0.05, ymax = agreement_df$ucl[1]+0.05,
                         alpha = 0.2, fill = red_color) +
       # lcl
       ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$lcl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
-                        # ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
-                        ymin = agreement_df$lcl[1]-0.05, ymax = agreement_df$lcl[1]+0.05,
+                        ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
+                        # ymin = agreement_df$lcl[1]-0.05, ymax = agreement_df$lcl[1]+0.05,
                         alpha = 0.2, fill = red_color) +
       ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
       ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab))
