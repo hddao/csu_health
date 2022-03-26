@@ -777,12 +777,6 @@ ba_plot <- map_df %>%
 
 
 
-gs_diff_df <- gs_diff_list[[2]]
-quantile_df <- quantile_list[[2]]
-agreement_df <- agreement_list[[2]]
-ylab <- ylab_list[[2]]
-suffix <- suffix_list[[2]]
-
 
 
 
