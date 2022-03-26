@@ -89,6 +89,8 @@ list(p1, p2, p3) %>%
 
 # Agreement table ---------------------------------------------------------
 agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
+quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list.rds")
+
 
 # Create a reference df for raster pair
 pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
@@ -112,6 +114,23 @@ agreement_stat_df <- agreement_stat_df %>%
                 msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
                 pair, month)
 
+quantile_df <- quantile_list %>%
+  # select only needed stats
+  purrr::map(~dplyr::select(.x, c(meanb, lcl, ucl,
+                msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
+                pair)) %>%
+               t() %>% tibble::as_tibble(rownames = NA) %>%
+               tibble::rownames_to_column() %>%
+               dplyr::mutate(ci = stringr::str_c("(", round(as.numeric(V1), 3),
+                                                 "; ", round(as.numeric(V2), 3), ")")) %>%
+               dplyr::mutate(ci = ifelse(rowname == "pair", V1, ci)) %>%
+               dplyr::select(-c(V1, V2)) %>%
+               dplyr::mutate(rowname = rowname %>% paste0("_ci"))
+             ) %>%
+  purrr::map2(c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"),
+             ~.x %>% dplyr::rename({{.y}} := ci)) %>%
+  purrr::reduce(dplyr::full_join, by = "rowname")
+
 agreement_table <- agreement_stat_df %>%
   # filter to agreement stats for all months
   dplyr::filter(month == "00") %>%
@@ -120,7 +139,12 @@ agreement_table <- agreement_stat_df %>%
   tibble::rownames_to_column() %>%
   dplyr::rename("MODIS & NLCD" = 2,
                 "Landsat 8 & MODIS" = 3,
-                "Landsat 8 & NLCD" = 4)
+                "Landsat 8 & NLCD" = 4) %>%
+  dplyr::bind_rows(quantile_df) %>%
+  tibble::rowid_to_column() %>%
+  dplyr::mutate(order = ifelse(rowid < 12, rowid*2-1, (rowid-11)*2)) %>%
+  dplyr::arrange(order)
+
 
 save_data(agreement_table,
           "DATA/Processed/Aim2/Agreement/agreement_table",
