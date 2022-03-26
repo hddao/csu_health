@@ -639,58 +639,49 @@ save_data(quantile_list,
           csv = FALSE)
 
 
-
-
-
-
-
-
-
-
-
 # Agreement, 3 raster -----------------------------------------------------
 
-#Mixed effects model (1) in the main paper
-lmer3_res <- gs_all_df %>%
-  dplyr::group_split(month) %>%
-  purrr::map(function(df){
-    tictoc::tic("lme4::lmer() for 3 raster")
-    res <- lme4::lmer(greenspace ~ raster +
-                        (1|id_dao) + (1|distance) +
-                        (1|id_dao:raster) + (1|id_dao:distance) +
-                        (1|distance:raster),
-                      data = df,
-                      control = lme4::lmerControl(optimizer = "bobyqa"))
-    res_sum <- summary(res)
-    tictoc::toc()
-    result <- list(res, res_sum)
-  })
-
-
-lmer12_res <- gs_all_df %>%
-  dplyr::filter(month != "All months") %>%
-  list() %>%
-  purrr::map(function(df){
-    tictoc::tic("lme4::lmer")
-    res <- lme4::lmer(greenspace ~ raster +
-                        (1|id_dao) + (1|distance) +
-                        (1|month) +
-                        (1|raster:month) + (1|month:distance) + (1|month:id_dao) +
-                        (1|id_dao:raster) + (1|id_dao:distance) +
-                        (1|distance:raster),
-                      data = df,
-                      control = lme4::lmerControl(optimizer = "bobyqa"))
-    res_sum <- summary(res)
-    tictoc::toc()
-    result <- list(res, res_sum)
-  })
-
-save_data(lmer3_res,
-          "DATA/Processed/Aim2/Agreement/lmer3_res",
-          "DATA/Processed/Aim2/Agreement/Archived/lmer3_res",
-          csv = FALSE)
-save_data(lmer12_res,
-          "DATA/Processed/Aim2/Agreement/lmer12_res",
-          "DATA/Processed/Aim2/Agreement/Archived/lmer12_res",
-          csv = FALSE)
+# #Mixed effects model (1) in the main paper
+# lmer3_res <- gs_all_df %>%
+#   dplyr::group_split(month) %>%
+#   purrr::map(function(df){
+#     tictoc::tic("lme4::lmer() for 3 raster")
+#     res <- lme4::lmer(greenspace ~ raster +
+#                         (1|id_dao) + (1|distance) +
+#                         (1|id_dao:raster) + (1|id_dao:distance) +
+#                         (1|distance:raster),
+#                       data = df,
+#                       control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_sum <- summary(res)
+#     tictoc::toc()
+#     result <- list(res, res_sum)
+#   })
+#
+#
+# lmer12_res <- gs_all_df %>%
+#   dplyr::filter(month != "All months") %>%
+#   list() %>%
+#   purrr::map(function(df){
+#     tictoc::tic("lme4::lmer")
+#     res <- lme4::lmer(greenspace ~ raster +
+#                         (1|id_dao) + (1|distance) +
+#                         (1|month) +
+#                         (1|raster:month) + (1|month:distance) + (1|month:id_dao) +
+#                         (1|id_dao:raster) + (1|id_dao:distance) +
+#                         (1|distance:raster),
+#                       data = df,
+#                       control = lme4::lmerControl(optimizer = "bobyqa"))
+#     res_sum <- summary(res)
+#     tictoc::toc()
+#     result <- list(res, res_sum)
+#   })
+#
+# save_data(lmer3_res,
+#           "DATA/Processed/Aim2/Agreement/lmer3_res",
+#           "DATA/Processed/Aim2/Agreement/Archived/lmer3_res",
+#           csv = FALSE)
+# save_data(lmer12_res,
+#           "DATA/Processed/Aim2/Agreement/lmer12_res",
+#           "DATA/Processed/Aim2/Agreement/Archived/lmer12_res",
+#           csv = FALSE)
 
