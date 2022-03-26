@@ -41,9 +41,9 @@ gs_desc_df <- gs_all_pair_list[1] %>%
   })
 
 scatterplot <- gs_desc_df %>%
-  purrr::map(.f = function(list){
+  purrr::map(function(list){
     plot_list <- list %>%
-      purrr::map(.f = function(df){
+      purrr::map(function(df){
         ggplot2::ggplot(df) +
           ggplot2::geom_abline(slope = 1, intercept = 0, colour = "grey50", size = 1.0) +
           ggplot2::geom_point(ggplot2::aes(x = get(names(df)[4]),
@@ -95,10 +95,17 @@ pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
                           pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
 
 # Create a reference table for agreement stats name
-agreement_desc_df <- tibble::tibble(
-  agreement_stats = c("meanb", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc"),
-  `Agreement Statistics` = c("LOA", "MSD", "CP 0.05", "CP 0.10", "TDI 0.05", "TDI 0.10", "CCC")
-)
+agreement_full_desc_df <- tibble::tibble(
+  rowname = c("meanb",  "lcl", "ucl", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc"),
+  `Agreement Statistics` = c("Limits of agreement (LOA)",
+                             "Lower limit of agreement (LOA + 1.96SD)",
+                             "Upper limit of agreement (LOA - 1.96SD)",
+                             "Mean squared deviation (MSD)",
+                             "Coverage Probability at greenspace of 0.05 (CP 0.05)",
+                             "Coverage Probability at greenspace of 0.10 (CP 0.10)",
+                             "Total deviation index at greenspace of 0.05 (TDI 0.05)",
+                             "Total deviation index at greenspace of 0.10 (TDI 0.10)",
+                             "Concordance Correlation Coefficient (CCC)"))
 
 
 agreement_stat_df <- agreement_stat_df %>%
@@ -122,11 +129,10 @@ quantile_df <- quantile_list %>%
                 pair)) %>%
                t() %>% tibble::as_tibble(rownames = NA) %>%
                tibble::rownames_to_column() %>%
-               dplyr::mutate(ci = stringr::str_c("(", round(as.numeric(V1), 3),
-                                                 "; ", round(as.numeric(V2), 3), ")")) %>%
+               dplyr::mutate(ci = stringr::str_c("(", sprintf("%.4f", as.numeric(V1)),
+                                                 " \u2013 ", sprintf("%.4f", as.numeric(V2)), ")")) %>%
                dplyr::mutate(ci = ifelse(rowname == "pair", V1, ci)) %>%
-               dplyr::select(-c(V1, V2)) %>%
-               dplyr::mutate(rowname = rowname %>% paste0("_ci"))
+               dplyr::select(-c(V1, V2))
              ) %>%
   purrr::map2(c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"),
              ~.x %>% dplyr::rename({{.y}} := ci)) %>%
@@ -140,16 +146,32 @@ agreement_table <- agreement_stat_df %>%
   tibble::rownames_to_column() %>%
   dplyr::rename("MODIS & NLCD" = 2,
                 "Landsat 8 & MODIS" = 3,
-                "Landsat 8 & NLCD" = 4) %>%
-  dplyr::bind_rows(quantile_df) %>%
+                "Landsat 8 & NLCD" = 4)
+
+agreement_table_long <- dplyr::bind_rows(agreement_table,
+                                         quantile_df %>%
+                                           dplyr::mutate(rowname = rowname %>% paste0("_ci"))) %>%
   tibble::rowid_to_column() %>%
   dplyr::mutate(order = ifelse(rowid < 12, rowid*2-1, (rowid-11)*2)) %>%
   dplyr::arrange(order)
 
+agreement_table_wide <- dplyr::full_join(agreement_table, quantile_df,
+                                         by = "rowname", suffix = c(" (point)", " (CI)")) %>%
+  dplyr::filter(!(rowname %in% c("pair", "month"))) %>%
+  dplyr::mutate(
+    `MODIS & NLCD` = paste0(sprintf("%.4f", as.numeric(`MODIS & NLCD (point)`)),
+                            " ", `MODIS & NLCD (CI)`),
+    `Landsat 8 & MODIS` = paste0(sprintf("%.4f", as.numeric(`Landsat 8 & MODIS (point)`)),
+                                 " ", `Landsat 8 & MODIS (CI)`),
+    `Landsat 8 & NLCD` = paste0(sprintf("%.4f", as.numeric(`Landsat 8 & NLCD (point)`)),
+                                " ", `Landsat 8 & NLCD (CI)`)) %>%
+  dplyr::left_join(agreement_full_desc_df, by = "rowname") %>%
+  dplyr::select(c("Agreement Statistics", "MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
 
-save_data(agreement_table,
-          "DATA/Processed/Aim2/Agreement/agreement_table",
-          "DATA/Processed/Aim2/Agreement/Archived/agreement_table")
+save_data(agreement_table_wide,
+          "DATA/Processed/Aim2/Agreement/agreement_table_wide",
+          "DATA/Processed/Aim2/Agreement/Archived/agreement_table_wide",
+          csv = FALSE, xlsx = TRUE)
 
 
 
@@ -185,7 +207,7 @@ agreement_by_month <- agreement_stat_df %>%
   setNames(unique(agreement_stat_df$pair))
 
 # Plot agreementbymonth and export
-plot <- agreement_by_month %>%
+plot_bymonth <- agreement_by_month %>%
   purrr::map(function(df) {
     # split data to scale and unscale stats
     df_scale <- df %>%
