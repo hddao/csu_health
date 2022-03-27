@@ -588,8 +588,8 @@ stat <- files_df %>%
     # Export
     tictoc::tic(paste0("Export ", B))
     save_data(agreement_stat_df,
-              paste0("DATA/Processed/Aim2/Agreement/Bootstrap/agreement_stat_df_", B),
-              paste0("DATA/Processed/Aim2/Agreement/Bootstrap/Archived/agreement_stat_df_", B),
+              paste0("DATA/Processed/Aim2/Agreement/Bootstrap/agreement_stat/agreement_stat_df_", B),
+              paste0("DATA/Processed/Aim2/Agreement/Bootstrap/agreement_stat/Archived/agreement_stat_df_", B),
               csv = FALSE)
     tictoc::toc()
     gc()
@@ -610,7 +610,7 @@ pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
                           pair = c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
 
 
-files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
+files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/agreement_stat/",
                     pattern = "^agreement_stat_df_\\d{3}\\.rds$",
                     full.names = TRUE) %>% sort()
 
