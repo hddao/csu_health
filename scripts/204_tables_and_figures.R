@@ -92,7 +92,7 @@ quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/Bootstrap/quanti
 pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
                           nlcd_26953 = c(1,0,1),
                           modis_26953 = c(1,1,0),
-                          pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
+                          pair = c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
 
 # Create a reference table for agreement stats name
 agreement_full_desc_df <- tibble::tibble(
@@ -121,7 +121,14 @@ agreement_stat_df <- agreement_stat_df %>%
   dplyr::select(meanb, lcl, ucl,
                 msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
                 pair, month)
+# flip the sign for the pair "MODIS - Landsat 8"
+agreement_stat_df[agreement_stat_df$pair == "MODIS & Landsat 8", ] <- agreement_stat_df[agreement_stat_df$pair == "MODIS & Landsat 8", ] %>%
+  dplyr::mutate_at(c("meanb", "lcl", "ucl"), function(x) {x <- (0 - x)})
 
+
+# flip the sign for the pair "MODIS - Landsat 8"
+quantile_list[[2]] <- quantile_list[[2]] %>%
+  dplyr::mutate_at(c("meanb", "lcl", "ucl"), function(x) {x <- (0 - x)})
 quantile_df <- quantile_list %>%
   # select only needed stats
   purrr::map(~dplyr::select(.x, c(meanb, lcl, ucl,
@@ -129,14 +136,17 @@ quantile_df <- quantile_list %>%
                 pair)) %>%
                t() %>% tibble::as_tibble(rownames = NA) %>%
                tibble::rownames_to_column() %>%
-               dplyr::mutate(ci = stringr::str_c("(", sprintf("%.4f", as.numeric(V1)),
-                                                 " \u2013 ", sprintf("%.4f", as.numeric(V2)), ")")) %>%
-               dplyr::mutate(ci = ifelse(rowname == "pair", V1, ci)) %>%
+               dplyr::mutate(ci = ifelse(
+                 rowname == "pair",
+                 V1,
+                 stringr::str_c("(", sprintf("%.4f", as.numeric(V1)),
+                                " \u2013 ", sprintf("%.4f", as.numeric(V2)), ")"))) %>%
                dplyr::select(-c(V1, V2))
              ) %>%
-  purrr::map2(c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"),
+  purrr::map2(c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"),
              ~.x %>% dplyr::rename({{.y}} := ci)) %>%
   purrr::reduce(dplyr::full_join, by = "rowname")
+
 
 agreement_table <- agreement_stat_df %>%
   # filter to agreement stats for all months
@@ -145,7 +155,7 @@ agreement_table <- agreement_stat_df %>%
   t() %>% tibble::as_tibble(rownames = NA) %>%
   tibble::rownames_to_column() %>%
   dplyr::rename("MODIS & NLCD" = 2,
-                "Landsat 8 & MODIS" = 3,
+                "MODIS & Landsat 8" = 3,
                 "Landsat 8 & NLCD" = 4)
 
 agreement_table_long <- dplyr::bind_rows(agreement_table,
@@ -161,12 +171,12 @@ agreement_table_wide <- dplyr::full_join(agreement_table, quantile_df,
   dplyr::mutate(
     `MODIS & NLCD` = paste0(sprintf("%.4f", as.numeric(`MODIS & NLCD (point)`)),
                             " ", `MODIS & NLCD (CI)`),
-    `Landsat 8 & MODIS` = paste0(sprintf("%.4f", as.numeric(`Landsat 8 & MODIS (point)`)),
-                                 " ", `Landsat 8 & MODIS (CI)`),
+    `MODIS & Landsat 8` = paste0(sprintf("%.4f", as.numeric(`MODIS & Landsat 8 (point)`)),
+                                 " ", `MODIS & Landsat 8 (CI)`),
     `Landsat 8 & NLCD` = paste0(sprintf("%.4f", as.numeric(`Landsat 8 & NLCD (point)`)),
                                 " ", `Landsat 8 & NLCD (CI)`)) %>%
   dplyr::left_join(agreement_full_desc_df, by = "rowname") %>%
-  dplyr::select(c("Agreement Statistics", "MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
+  dplyr::select(c("Agreement Statistics", "MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
 
 save_data(agreement_table_wide,
           "DATA/Processed/Aim2/Agreement/agreement_table_wide",
