@@ -465,7 +465,7 @@ save_data(agreement_stat_df,
 # # Run and export mixed model
 # lmer_sum <- files %>% purrr::map(get_mixed_model_sum)
 
-# res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD") consequentially
+# res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD") consequentially
 
 
 
@@ -560,7 +560,7 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
 lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
                             nlcd_26953 = c(1,0,1),
                             modis_26953= c(1,1,0),
-                            pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD")) %>%
+                            pair = c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD")) %>%
   split(seq(nrow(.)))
 
 # Calculate agreement stats and export
@@ -607,7 +607,7 @@ stat <- files_df %>%
 pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
                           nlcd_26953 = c(1,0,1),
                           modis_26953 = c(1,1,0),
-                          pair = c("MODIS & NLCD", "Landsat 8 & MODIS", "Landsat 8 & NLCD"))
+                          pair = c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
 
 
 files <- list.files(path = "DATA/Processed/Aim2/Agreement/Bootstrap/",
