@@ -634,8 +634,8 @@ quantile_list <- agreement_stat_all_list %>%
 
 
 save_data(quantile_list,
-          "DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list",
-          "DATA/Processed/Aim2/Agreement/Bootstrap/Archived/quantile_list",
+          "DATA/Processed/Aim2/Agreement/quantile_list",
+          "DATA/Processed/Aim2/Agreement/Archived/quantile_list",
           csv = FALSE)
 
 
