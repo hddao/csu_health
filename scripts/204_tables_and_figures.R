@@ -333,16 +333,6 @@ ba_plot <- map_df %>%
   purrr::pwalk(function(gs_diff_df, agreement_df, quantile_df, ylab, suffix) {
     ggplot2::ggplot() +
       ggplot2::theme_bw() +
-      # ggplot2::geom_point(data = gs_diff_df,
-      #                     ggplot2::aes(x = m,
-      #                                  y = d,
-      #                                  colour = `Radius (m)`),
-      #                     shape = 4, size = 0.4,
-      #                     ) +
-      # ggplot2::theme(legend.position = c(.95, .95),
-      #                legend.justification = c("right", "top"),
-      #                legend.box.just = "left") +
-      # ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
       ggplot2::xlim(0, 0.6) +
       # ggplot2::ylim(-0.6, 0.6) +
       # Plot Bland-Altman lines
@@ -350,29 +340,37 @@ ba_plot <- map_df %>%
       ggplot2::geom_hline(ggplot2::aes(yintercept = 0),
                           colour = "grey50", size = 1.0) +
       # meanb
-      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$meanb[1]),
-                          colour = blue_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
                         ymin = quantile_df$meanb[1], ymax = quantile_df$meanb[2],
-                        # ymin = agreement_df$meanb[1]-0.05, ymax = agreement_df$meanb[1]+0.05,
                         alpha = 0.2, fill = blue_color) +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$meanb[1]),
+                          colour = blue_color, size = 1.0, linetype = "longdash") +
       # ucl
-      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$ucl[1]),
-                          colour = red_color, size = 1.0, linetype = "longdash") +
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
                         ymin = quantile_df$ucl[1], ymax = quantile_df$ucl[2],
-                        # ymin = agreement_df$ucl[1]-0.05, ymax = agreement_df$ucl[1]+0.05,
                         alpha = 0.2, fill = red_color) +
-      # lcl
-      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$lcl[1]),
+      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$ucl[1]),
                           colour = red_color, size = 1.0, linetype = "longdash") +
+      # lcl
       ggplot2::annotate('ribbon',
                         x = c(-Inf, Inf),
                         ymin = quantile_df$lcl[1], ymax = quantile_df$lcl[2],
-                        # ymin = agreement_df$lcl[1]-0.05, ymax = agreement_df$lcl[1]+0.05,
                         alpha = 0.2, fill = red_color) +
+      ggplot2::geom_hline(ggplot2::aes(yintercept = agreement_df$lcl[1]),
+                          colour = red_color, size = 1.0, linetype = "longdash") +
+      # Add point data
+      ggplot2::geom_point(data = gs_diff_df,
+                          ggplot2::aes(x = m,
+                                       y = d,
+                                       colour = `Radius (m)`),
+                          shape = 4, size = 0.4,
+                          ) +
+      ggplot2::theme(legend.position = c(.95, .95),
+                     legend.justification = c("right", "top"),
+                     legend.box.just = "left") +
+      ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
       ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
       ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab))
 
