@@ -85,7 +85,7 @@ tictoc::toc()
 
 # Agreement table ---------------------------------------------------------
 agreement_stat_df <- readr::read_rds("DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds")
-quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list.rds")
+quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/quantile_list.rds")
 
 
 # Create a reference df for raster pair
@@ -263,7 +263,7 @@ plot_bymonth <- agreement_by_month %>%
 # Bland-Altman plots ------------------------------------------------------
 
 gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_pair_list.rds")
-quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/Bootstrap/quantile_list.rds")
+quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/quantile_list.rds")
 agreement_stat_df <- "DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds"
 
 
