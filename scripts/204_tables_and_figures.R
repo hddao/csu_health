@@ -344,7 +344,7 @@ ba_plot <- map_df %>%
     ggplot2::ggplot() +
       ggplot2::theme_bw() +
       ggplot2::xlim(0, 0.6) +
-      # ggplot2::ylim(-0.6, 0.6) +
+      ggplot2::ylim(-0.6, 0.6) +
       # Plot Bland-Altman lines
       # Horizontal guide line of y = 0
       ggplot2::geom_hline(ggplot2::aes(yintercept = 0),
@@ -377,8 +377,8 @@ ba_plot <- map_df %>%
                                        colour = `Radius (m)`),
                           shape = 4, size = 0.4,
                           ) +
-      ggplot2::theme(legend.position = c(.95, .95),
-                     legend.justification = c("right", "top"),
+      ggplot2::theme(legend.position = c(0.95, 0.05),
+                     legend.justification = c("right", "bottom"),
                      legend.box.just = "left") +
       ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
       ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
