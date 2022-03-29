@@ -1,6 +1,5 @@
 rm(list = ls())
 
-
 # Functions ---------------------------------------------------------------
 
 source("scripts/Functions/save_data.R")
@@ -27,6 +26,68 @@ save_data(aim2_desc,
 
 # Export and run sas code for descriptive table
 # scripts/204a_desc_table.sas
+
+
+
+
+# Histogram ---------------------------------------------------------------
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
+
+gs_00_df <- gs_all_list[[1]] %>%
+  dplyr::mutate(raster = raster %>% dplyr::recode("landsat_26953" = "Landsat 8",
+                                                  "nlcd_26953" = "NLCD",
+                                                  "modis_26953" = "MODIS")) %>%
+  dplyr::rename(`Greenspace measurement` = greenspace,
+                `Greenspace source` = raster,
+                `Buffer radius (m)` = distance) %>%
+  dplyr::mutate(`Buffer radius (m)` = `Buffer radius (m)` %>%
+                  as.character())
+
+mu <- plyr::ddply(gs_00_df, "`Greenspace source`",
+                  dplyr::summarise, grp.mean=mean(`Greenspace measurement`))
+
+# Histogram by raster
+p<-ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Greenspace source`)) +
+  ggplot2::geom_histogram(fill="white", position="dodge")+
+  ggplot2::geom_vline(data=mu, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
+             linetype="dashed") +
+  ggplot2::theme_bw() +
+  ggplot2::guides(ggplot2::guide_legend(label.position = "bottom")) +
+  ggplot2::theme(legend.position="bottom") +
+  ggsci::scale_color_nejm() +
+  ggplot2::ylab("Count")
+
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/histogram_by_raster.jpg",
+                device = "jpeg",
+                width = 6,
+                height = 4,
+                units = "in")
+
+# Histogram by buffer radius
+hist_list <- c("25", "50", "100", "250", "500", "1000") %>%
+  purrr::map(function(x) {
+    ggplot2::ggplot(gs_00_df %>%
+                      dplyr::filter(`Buffer radius (m)` == x),
+                    ggplot2::aes(x=`Greenspace measurement`, color=`Buffer radius (m)`)) +
+      ggplot2::geom_histogram(fill="white", position="dodge", show.legend = FALSE)+
+      ggplot2::theme_bw() +
+      ggsci::scale_color_nejm() +
+      ggplot2::xlim(0, 0.6) +
+      ggplot2::ylab("Count") +
+      ggplot2::xlab(paste0("Greenspace measurement with buffer radius of ", x, "m")) +
+      ggplot2::scale_y_continuous(breaks = seq(0, 12000, by = 2000),
+                                  limits = c(0, 11000))
+  })
+p <- gridExtra::arrangeGrob(hist_list[[1]], hist_list[[2]], hist_list[[3]],
+                       hist_list[[4]], hist_list[[5]], hist_list[[6]],
+                       nrow=2, ncol=3)
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/histogram_by_radius.jpg",
+                device = "jpeg",
+                width = 15,
+                height = 10,
+                units = "in")
 
 
 # Scatter plots & equality line -------------------------------------------
@@ -106,8 +167,8 @@ agreement_full_desc_df <- tibble::tibble(
                              "Mean squared deviation (MSD)",
                              "Coverage Probability at greenspace of 0.05 (CP 0.05)",
                              "Coverage Probability at greenspace of 0.10 (CP 0.10)",
-                             "Total deviation index at greenspace of 0.05 (TDI 0.05)",
-                             "Total deviation index at greenspace of 0.10 (TDI 0.10)",
+                             "Total deviation index at 95% probability (TDI 0.95)",
+                             "Total deviation index at 90% probability (TDI 0.90)",
                              "Concordance Correlation Coefficient (CCC)",
                              "Variance from subject",
                              "Variance from buffer radius",
@@ -198,7 +259,7 @@ save_data(agreement_table_wide,
 # Create a reference table for agreement stats name
 agreement_desc_df <- tibble::tibble(
   agreement_stats = c("meanb", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc"),
-  `Agreement Statistics` = c("LOA", "MSD", "CP 0.05", "CP 0.10", "TDI 0.05", "TDI 0.10", "CCC")
+  `Agreement Statistics` = c("LOA", "MSD", "CP 0.05", "CP 0.10", "TDI 0.95", "TDI 0.90", "CCC")
 )
 
 # Clean agreement stats for ggplot
@@ -230,7 +291,7 @@ plot_bymonth <- agreement_by_month %>%
     df_scale <- df %>%
       dplyr::filter(`Agreement Statistics` %in% c("CCC", "CP 0.05", "CP 0.10"))
     df_unscale <- df %>%
-      dplyr::filter(`Agreement Statistics` %in% c("LOA", "MSD", "TDI 0.05", "TDI 0.10"))
+      dplyr::filter(`Agreement Statistics` %in% c("LOA", "MSD", "TDI 0.95", "TDI 0.90"))
     # Create plots for agreement by months
     plot_list <- list(df_scale, df_unscale) %>%
       purrr::map(~ggplot2::ggplot(data = .x,
