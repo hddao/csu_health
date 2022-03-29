@@ -96,7 +96,10 @@ pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
 
 # Create a reference table for agreement stats name
 agreement_full_desc_df <- tibble::tibble(
-  rowname = c("meanb",  "lcl", "ucl", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc"),
+  rowname = c("meanb",  "lcl", "ucl", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc",
+              "sigma2.alpha.est", "sigma2.gamma.est", "sigma2.alpha.gamma.est",
+              "sigma2.alpha.beta.est", "sigma2.beta.gamma.est", "sigma2.epsilon.est",
+              "phi2.beta.est"),
   `Agreement Statistics` = c("Limits of agreement (LOA)",
                              "Lower limit of agreement (LOA + 1.96SD)",
                              "Upper limit of agreement (LOA - 1.96SD)",
@@ -105,8 +108,14 @@ agreement_full_desc_df <- tibble::tibble(
                              "Coverage Probability at greenspace of 0.10 (CP 0.10)",
                              "Total deviation index at greenspace of 0.05 (TDI 0.05)",
                              "Total deviation index at greenspace of 0.10 (TDI 0.10)",
-                             "Concordance Correlation Coefficient (CCC)"))
-
+                             "Concordance Correlation Coefficient (CCC)",
+                             "Variance from subject",
+                             "Variance from buffer radius",
+                             "Variance from subject & buffer radius interaction",
+                             "Variance from subject & raster interaction",
+                             "Variance from buffer radius & raster interaction",
+                             "Variance from error term",
+                             "Variance from raster"))
 
 agreement_stat_df <- agreement_stat_df %>%
   dplyr::rename_all(tolower) %>%
@@ -120,6 +129,9 @@ agreement_stat_df <- agreement_stat_df %>%
   # select only needed stats
   dplyr::select(meanb, lcl, ucl,
                 msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
+                sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
+                sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
+                phi2.beta.est,
                 pair, month)
 # flip the sign for the pair "MODIS - Landsat 8"
 agreement_stat_df[agreement_stat_df$pair == "MODIS & Landsat 8", ] <- agreement_stat_df[agreement_stat_df$pair == "MODIS & Landsat 8", ] %>%
@@ -133,6 +145,9 @@ quantile_df <- quantile_list %>%
   # select only needed stats
   purrr::map(~dplyr::select(.x, c(meanb, lcl, ucl,
                 msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
+                sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
+                sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
+                phi2.beta.est,
                 pair)) %>%
                t() %>% tibble::as_tibble(rownames = NA) %>%
                tibble::rownames_to_column() %>%
@@ -147,7 +162,6 @@ quantile_df <- quantile_list %>%
              ~.x %>% dplyr::rename({{.y}} := ci)) %>%
   purrr::reduce(dplyr::full_join, by = "rowname")
 
-
 agreement_table <- agreement_stat_df %>%
   # filter to agreement stats for all months
   dplyr::filter(month == "00") %>%
@@ -157,13 +171,6 @@ agreement_table <- agreement_stat_df %>%
   dplyr::rename("MODIS & NLCD" = 2,
                 "MODIS & Landsat 8" = 3,
                 "Landsat 8 & NLCD" = 4)
-
-agreement_table_long <- dplyr::bind_rows(agreement_table,
-                                         quantile_df %>%
-                                           dplyr::mutate(rowname = rowname %>% paste0("_ci"))) %>%
-  tibble::rowid_to_column() %>%
-  dplyr::mutate(order = ifelse(rowid < 12, rowid*2-1, (rowid-11)*2)) %>%
-  dplyr::arrange(order)
 
 agreement_table_wide <- dplyr::full_join(agreement_table, quantile_df,
                                          by = "rowname", suffix = c(" (point)", " (CI)")) %>%
