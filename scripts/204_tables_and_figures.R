@@ -27,8 +27,63 @@ save_data(aim2_desc,
 # Export and run sas code for descriptive table
 # scripts/204a_desc_table.sas
 
+aim2_desc_table <- aim2_desc %>%
+  dplyr::select(-id_dao) %>%
+  dplyr::group_split(raster) %>%
+  purrr::map(vtable::st, out = "csv", add.median = TRUE) %>%
+  purrr::map(~.x %>%
+               dplyr::filter(Variable %>% stringr::str_detect("gs_")) %>%
+               dplyr::mutate_at(dplyr::vars(-Variable), as.numeric) %>%
+               dplyr::mutate(`Mean+_SD` = paste0(sprintf("%.3f", Mean),
+                                                 "\u00b1",
+                                                 sprintf("%.3f", `Std. Dev.`)),
+                             Median = sprintf("%.3f", `Pctl. 50`),
+                             `Q1-Q3` = paste0(sprintf("%.3f", `Pctl. 25`),
+                                              "-",
+                                              sprintf("%.3f", `Pctl. 75`)),
+                             `Median (IQR)` = paste0(Median,
+                                                     " (",
+                                                     `Q1-Q3`,
+                                                     ")"),
+                             `Min-Max` = paste0(sprintf("%.3f", Min), "-", sprintf("%.3f", Max)),
+                             n = N %>% as.character(),
+                             `Buffer radius (m)` = Variable %>%
+                               stringr::str_sub(-4, -1) %>%
+                               as.numeric() %>%
+                               paste0("m")
+                               ) %>%
+               dplyr::select(Variable, `Buffer radius (m)`, n,
+                             `Mean+_SD`, Median, `Q1-Q3`, `Median (IQR)`, `Min-Max`) %>%
+               tidyr::pivot_longer(cols = `Buffer radius (m)`:`Min-Max`,
+                                   names_to = "stats",
+                                   values_to = "value") %>%
+               dplyr::mutate(stats = ifelse(stats == "Buffer radius (m)", value, paste0("  ", stats)),
+                             value = ifelse(stats == value, "", value)) %>%
+               dplyr::select(-Variable)
+               ) %>%
+  purrr::map2(c("Landsat 8 (n=21,950)", "MODIS (n=21,950)", "NLCD (n=21,950)"),
+                ~.x %>% dplyr::rename({{.y}} := value)) %>%
+  dplyr::bind_cols() %>%
+  dplyr::select(-c(3,5)) %>%
+  dplyr::rename(`Greenspace buffer radii` = `stats...1`) %>%
+  dplyr::mutate(`Greenspace buffer radii` = `Greenspace buffer radii` %>%
+                  dplyr::recode("  Mean+_SD" = "  Mean\u00b1SD"))
 
 
+aim2_desc_table_1 <- aim2_desc_table %>%
+  dplyr::filter(!(`Greenspace buffer radii` %in% c("  Median (IQR)", "  n")))
+aim2_desc_table_2 <- aim2_desc_table %>%
+  dplyr::filter(!(`Greenspace buffer radii` %in% c("  Median", "  Q1-Q3", "  n")))
+
+
+save_data(aim2_desc_table_1,
+          "DATA/Processed/Aim2/Agreement/aim2_desc_table_1",
+          "DATA/Processed/Aim2/Agreement/Archived/aim2_desc_table_1",
+          xlsx = TRUE, csv = FALSE)
+save_data(aim2_desc_table_2,
+          "DATA/Processed/Aim2/Agreement/aim2_desc_table_2",
+          "DATA/Processed/Aim2/Agreement/Archived/aim2_desc_table_2",
+          xlsx = TRUE, csv = FALSE)
 
 # Histogram ---------------------------------------------------------------
 gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
@@ -52,15 +107,18 @@ p<-ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Gre
   ggplot2::geom_vline(data=mu, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
              linetype="dashed") +
   ggplot2::theme_bw() +
-  ggplot2::guides(ggplot2::guide_legend(label.position = "bottom")) +
-  ggplot2::theme(legend.position="bottom") +
+  ggplot2::theme(legend.position = c(0.95, 0.95),
+                 legend.justification = c("right", "top"),
+                 legend.box.just = "left") +
+  ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+  # ggplot2::theme(legend.position="bottom") +
   ggsci::scale_color_nejm() +
   ggplot2::ylab("Count")
 
 ggplot2::ggsave(plot = p,
                 "outputs/figures/Aim2/histogram_by_raster.jpg",
                 device = "jpeg",
-                width = 6,
+                width = 6.5,
                 height = 4,
                 units = "in")
 
@@ -144,6 +202,8 @@ scatterplot[[1]] %>%
                               units = "in"))
 tictoc::toc()
 
+
+
 # Agreement table ---------------------------------------------------------
 agreement_stat_df <- readr::read_rds("DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds")
 quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/quantile_list.rds")
@@ -167,8 +227,8 @@ agreement_full_desc_df <- tibble::tibble(
                              "Mean squared deviation (MSD)",
                              "Coverage Probability at greenspace of 0.05 (CP 0.05)",
                              "Coverage Probability at greenspace of 0.10 (CP 0.10)",
-                             "Total deviation index at 95% probability (TDI 0.95)",
                              "Total deviation index at 90% probability (TDI 0.90)",
+                             "Total deviation index at 95% probability (TDI 0.95)",
                              "Concordance Correlation Coefficient (CCC)",
                              "Variance from subject",
                              "Variance from buffer radius",
@@ -253,13 +313,12 @@ save_data(agreement_table_wide,
 
 
 
-
 # Plot agreement stats by month -------------------------------------------
 
 # Create a reference table for agreement stats name
 agreement_desc_df <- tibble::tibble(
   agreement_stats = c("meanb", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc"),
-  `Agreement Statistics` = c("LOA", "MSD", "CP 0.05", "CP 0.10", "TDI 0.95", "TDI 0.90", "CCC")
+  `Agreement Statistics` = c("LOA", "MSD", "CP 0.05", "CP 0.10", "TDI 0.90", "TDI 0.95", "CCC")
 )
 
 # Clean agreement stats for ggplot
