@@ -27,6 +27,18 @@ save_data(aim2_desc,
 # Export and run sas code for descriptive table
 # scripts/204a_desc_table.sas
 
+
+# Stats for txt
+aim2_desc_text <- gs_all_list[[1]] %>%
+  dplyr::filter(month == "All months") %>%
+  dplyr::group_by(raster) %>%
+  dplyr::summarise(gs_mean = mean(greenspace), gs_sd = sd(greenspace))
+save_data(aim2_desc_text,
+          "DATA/Processed/Aim2/Agreement/aim2_desc_text",
+          "DATA/Processed/Aim2/Agreement/Archived/aim2_desc_text")
+
+
+# Desc table
 aim2_desc_table <- aim2_desc %>%
   dplyr::select(-id_dao) %>%
   dplyr::group_split(raster) %>%
