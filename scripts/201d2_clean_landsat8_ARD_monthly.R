@@ -104,3 +104,26 @@ files_pr_month_mean %>%
 
 
 
+# Explore monthly landsat data --------------------------------------------
+
+
+test <- list.files(path = "DATA/Processed/Aim2/Landsat 8/",
+                   full.names = TRUE,
+                   pattern = "^landsat8_ndvi_\\d{2}.tif$") %>%
+  purrr::map(terra::rast)
+
+mean <- test %>% purrr::map(~terra::global(.x, "mean", na.rm = TRUE))
+mean %>% dplyr::bind_rows()
+# mean
+# ndvi...1  0.09200931
+# ndvi...2  0.07884368
+# ndvi...3  0.08756606
+# ndvi...4  0.09176377
+# ndvi...5  0.12375617
+# ndvi...6  0.17072887
+# ndvi...7  0.17188687
+# ndvi...8  0.16100692
+# ndvi...9  0.14074084
+# ndvi...10 0.11419859
+# ndvi...11 0.10657906
+# ndvi...12 0.09438375
