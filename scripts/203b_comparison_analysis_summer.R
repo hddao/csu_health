@@ -7,13 +7,13 @@ source("scripts/Functions/save_data.R")
 
 # Load Data ---------------------------------------------------------------
 
-raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds")
-raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds") %>%
-  dplyr::filter(raster == "nlcd_26953")
-
-raw_greenspaceall_geometry <- dplyr::bind_rows(raw_greenspaceall_geometry_landsatmodis,
-                                               raw_greenspaceall_geometry_nlcd)
-rm(raw_greenspaceall_geometry_landsatmodis, raw_greenspaceall_geometry_nlcd)
+# raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds")
+# raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds") %>%
+#   dplyr::filter(raster == "nlcd_26953")
+#
+# raw_greenspaceall_geometry <- dplyr::bind_rows(raw_greenspaceall_geometry_landsatmodis,
+#                                                raw_greenspaceall_geometry_nlcd)
+# rm(raw_greenspaceall_geometry_landsatmodis, raw_greenspaceall_geometry_nlcd)
 
 # Note: Comparison analysis -----------------------------------------------
 
