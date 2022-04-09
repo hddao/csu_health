@@ -47,7 +47,7 @@ landsat8_ndvi_stack <- files_pr_summer %>%
 # Calculate mean ----------------------------------------------------------
 
 landsat8_ndvi_mean <- landsat8_ndvi_stack %>%
-  purrr::walk2(c("011008", "011009","012008", "012009"),
+  purrr::walk2(c("011008", "011009", "012008", "012009"),
                function(stack, pr) {
                  tictoc::tic("terra::app")
                  mean <- stack %>%
@@ -60,13 +60,13 @@ landsat8_ndvi_mean <- landsat8_ndvi_stack %>%
                                     overwrite = TRUE)
                  tictoc::toc()
                })
-# EACH terra::app: ~270 sec elapsed
+# EACH terra::app: ~870 sec elapsed
 
 
 # Mosaic ARD tiles --------------------------------------------------------
 files_pr_summer_mean <- tibble::tibble(file_location = list.files(path = "DATA/Processed/Aim2/Landsat 8/",
                                                                  full.names = TRUE,
-                                                                 pattern = "^landsat8_ndvi_summer_mean_\\d{6}.tif$")) %>%
+                                                                 pattern = "^landsat8_ndvi_summer_mean_\\d{6}.tif$")) %$%
   # get the vector for file location
   base::as.vector(file_location) %>%
   # read
@@ -79,9 +79,9 @@ tictoc::tic("terra::mosaic")
 Sys.time()
 landsat8_summer <- terra::mosaic(files_pr_summer_mean,
                           fun = "mean",
-                          filename = "DATA/Processed/Aim2/Landsat 8/landsat8_ndvi.tif",
+                          filename = "DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summer.tif",
                           overwrite = TRUE,
                           wopt = list(datatype = "FLT4S", names = "ndvi")
 )
 tictoc::toc()
-# EACH terra::mosaic: ~35 sec elapsed
+# terra::mosaic: 29.72 sec elapsed
