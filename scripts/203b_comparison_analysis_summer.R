@@ -7,25 +7,16 @@ source("scripts/Functions/save_data.R")
 
 # Load Data ---------------------------------------------------------------
 
-<<<<<<< HEAD
-raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds") %>%
-  dplyr::mutate(raster = dplyr::recode(raster, "landsat_26953_summer" = "landsat_26953", "modis_26953_summer" = "modis_26953"))
-
-raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds") %>%
-  dplyr::filter(raster == "nlcd_26953" & !(distance %in% c("2000", "4000")))
-
-raw_greenspaceall_geometry <- dplyr::bind_rows(raw_greenspaceall_geometry_landsatmodis,
-                                               raw_greenspaceall_geometry_nlcd)
-rm(raw_greenspaceall_geometry_landsatmodis, raw_greenspaceall_geometry_nlcd)
-=======
-# raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds")
+# raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds") %>%
+#   dplyr::mutate(raster = dplyr::recode(raster, "landsat_26953_summer" = "landsat_26953", "modis_26953_summer" = "modis_26953"))
+#
 # raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds") %>%
-#   dplyr::filter(raster == "nlcd_26953")
+#   dplyr::filter(raster == "nlcd_26953" & !(distance %in% c("2000", "4000")))
 #
 # raw_greenspaceall_geometry <- dplyr::bind_rows(raw_greenspaceall_geometry_landsatmodis,
 #                                                raw_greenspaceall_geometry_nlcd)
 # rm(raw_greenspaceall_geometry_landsatmodis, raw_greenspaceall_geometry_nlcd)
->>>>>>> 1f7c24c26b64eb4244002c2ab0e2a21508b4d8da
+
 
 # Note: Comparison analysis -----------------------------------------------
 
