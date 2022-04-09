@@ -371,90 +371,90 @@ lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_re
 
 # * Get lmer() model summary: res, res_diff, res_diff_1 -------------------
 
-# files <- list.files(path = "DATA/Processed/Aim2/Agreement_summer/Bootstrap/",
-#                     pattern = "^boot_data_\\d{3}\\.rds$",
-#                     full.names = TRUE) %>%
-#   sort()
-#
-# # Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
-# get_mixed_model_sum <- function(file_location){
-#   B <- file_location %>% stringr::str_sub(-7, -5)
-#   tictoc::tic(paste0("read data ", B))
-#   # read data in
-#   data <- file_location %>% readr::read_rds()
-#   tictoc::toc()
-#
-#   # convert to data for pair of raster
-#   data_pair <- c("landsat_26953", "nlcd_26953", "modis_26953") %>%
-#     purrr::map(~data %>% dplyr::filter(!(raster %in% c(.x))))
-#   data_pair_diff <- data_pair %>%
-#     purrr::map(~.x %>%
-#                  # Edit df to create variable d
-#                  tidyr::pivot_wider(names_from = raster,
-#                                     values_from = greenspace) %>%
-#                  dplyr::mutate(d = .[[5]] - .[[6]]))
-#
-#   # run lmer
-#   # res_sum
-#   res_sum <- data_pair %>%
-#     purrr::map(function(df){
-#       tictoc::tic("lme4::lmer res")
-#       res <- lme4::lmer(greenspace ~ raster +
-#                           (1|idb) + (1|distance) +
-#                           (1|idb:raster) + (1|idb:distance) +
-#                           (1|distance:raster),
-#
-#                         data = df,
-#                         control = lme4::lmerControl(optimizer = "bobyqa"))
-#       res_sum <- summary(res)
-#       tictoc::toc()
-#       res_sum
-#     })
-#   # res_diff_sum
-#   res_diff_sum <- data_pair_diff %>%
-#     purrr::map(function(df){
-#       tictoc::tic("lme4::lmer res_diff")
-#       # run lme4::lmer() for res_diff
-#       res_diff <- lme4::lmer(d ~ (1|idb) + (1|distance),
-#                              data = df,
-#                              control = lme4::lmerControl(optimizer = "bobyqa"))
-#       res_diff_sum <- summary(res_diff)
-#       tictoc::toc()
-#       res_diff_sum
-#     })
-#   # res_diff_1_sum
-#   res_diff_1_sum <- data_pair_diff %>%
-#     purrr::map(function(df){
-#       tictoc::tic("lme4::lmer res_diff_1")
-#       # run lme4::lmer() for res_diff_1
-#       res_diff_1 <- lme4::lmer(d ~ (1|idb),
-#                                data = df,
-#                                control = lme4::lmerControl(optimizer = "bobyqa"))
-#       res_diff_1_sum <- summary(res_diff_1)
-#       tictoc::toc()
-#       res_diff_1_sum
-#     })
-#   # Export
-#   tictoc::tic(paste0("Export ", B))
-#   save_data(res_sum,
-#             paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/res_sum_", B),
-#             paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/Archived/res_sum_", B),
-#             csv = FALSE)
-#   save_data(res_diff_sum,
-#             paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/res_diff_sum_", B),
-#             paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/Archived/res_diff_sum_", B),
-#             csv = FALSE)
-#   save_data(res_diff_1_sum,
-#             paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/res_diff_1_sum_", B),
-#             paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/Archived/res_diff_1_sum_", B),
-#             csv = FALSE)
-#   tictoc::toc()
-#   gc()
-#   B
-# }
-#
-# # Run and export mixed model
-# lmer_sum <- files %>% purrr::map(get_mixed_model_sum)
+files <- list.files(path = "DATA/Processed/Aim2/Agreement_summer/Bootstrap/",
+                    pattern = "^boot_data_\\d{3}\\.rds$",
+                    full.names = TRUE) %>%
+  sort()
+
+# Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
+get_mixed_model_sum <- function(file_location){
+  B <- file_location %>% stringr::str_sub(-7, -5)
+  tictoc::tic(paste0("read data ", B))
+  # read data in
+  data <- file_location %>% readr::read_rds()
+  tictoc::toc()
+
+  # convert to data for pair of raster
+  data_pair <- c("landsat_26953", "nlcd_26953", "modis_26953") %>%
+    purrr::map(~data %>% dplyr::filter(!(raster %in% c(.x))))
+  data_pair_diff <- data_pair %>%
+    purrr::map(~.x %>%
+                 # Edit df to create variable d
+                 tidyr::pivot_wider(names_from = raster,
+                                    values_from = greenspace) %>%
+                 dplyr::mutate(d = .[[5]] - .[[6]]))
+
+  # run lmer
+  # res_sum
+  res_sum <- data_pair %>%
+    purrr::map(function(df){
+      tictoc::tic("lme4::lmer res")
+      res <- lme4::lmer(greenspace ~ raster +
+                          (1|idb) + (1|distance) +
+                          (1|idb:raster) + (1|idb:distance) +
+                          (1|distance:raster),
+
+                        data = df,
+                        control = lme4::lmerControl(optimizer = "bobyqa"))
+      res_sum <- summary(res)
+      tictoc::toc()
+      res_sum
+    })
+  # res_diff_sum
+  res_diff_sum <- data_pair_diff %>%
+    purrr::map(function(df){
+      tictoc::tic("lme4::lmer res_diff")
+      # run lme4::lmer() for res_diff
+      res_diff <- lme4::lmer(d ~ (1|idb) + (1|distance),
+                             data = df,
+                             control = lme4::lmerControl(optimizer = "bobyqa"))
+      res_diff_sum <- summary(res_diff)
+      tictoc::toc()
+      res_diff_sum
+    })
+  # res_diff_1_sum
+  res_diff_1_sum <- data_pair_diff %>%
+    purrr::map(function(df){
+      tictoc::tic("lme4::lmer res_diff_1")
+      # run lme4::lmer() for res_diff_1
+      res_diff_1 <- lme4::lmer(d ~ (1|idb),
+                               data = df,
+                               control = lme4::lmerControl(optimizer = "bobyqa"))
+      res_diff_1_sum <- summary(res_diff_1)
+      tictoc::toc()
+      res_diff_1_sum
+    })
+  # Export
+  tictoc::tic(paste0("Export ", B))
+  save_data(res_sum,
+            paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/res_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/Archived/res_sum_", B),
+            csv = FALSE)
+  save_data(res_diff_sum,
+            paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/res_diff_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/Archived/res_diff_sum_", B),
+            csv = FALSE)
+  save_data(res_diff_1_sum,
+            paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/res_diff_1_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/Archived/res_diff_1_sum_", B),
+            csv = FALSE)
+  tictoc::toc()
+  gc()
+  B
+}
+
+# Run and export mixed model
+lmer_sum <- files %>% purrr::map(get_mixed_model_sum)
 
 # res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD") consequentially
 
