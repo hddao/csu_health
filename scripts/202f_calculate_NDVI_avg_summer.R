@@ -157,7 +157,7 @@ list_df[1:16, ] %>%
 list_df[17:32, ] %>%
   dplyr::filter(!(distance_chr %in% c("2000", "4000"))) %>%
   purrr::pwalk(.f = export_greenspace_df_long)
-# RANGE export greenspace: 1500-3800 sec elapsed
+# RANGE export greenspace: 1500-2500 sec elapsed
 
 
 # Combine exported files --------------------------------------------------
