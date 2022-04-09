@@ -7,9 +7,11 @@ source("scripts/Functions/save_data.R")
 
 # Load Data ---------------------------------------------------------------
 
-raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds")
+raw_greenspaceall_geometry_landsatmodis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds") %>%
+  dplyr::mutate(raster = dplyr::recode(raster, "landsat_26953_summer" = "landsat_26953", "modis_26953_summer" = "modis_26953"))
+
 raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds") %>%
-  dplyr::filter(raster == "nlcd_26953")
+  dplyr::filter(raster == "nlcd_26953" & !(distance %in% c("2000", "4000")))
 
 raw_greenspaceall_geometry <- dplyr::bind_rows(raw_greenspaceall_geometry_landsatmodis,
                                                raw_greenspaceall_geometry_nlcd)
@@ -46,64 +48,47 @@ rm(raw_greenspaceall_geometry_landsatmodis, raw_greenspaceall_geometry_nlcd)
 
 # Prepare dataset ---------------------------------------------------------
 
-# Create a function to clean greenspace data
-clean_greenspace <- function(raw_gs_df) {
-  tibble::as_tibble(raw_gs_df) %>%
-    # Rename to greenspace
-    dplyr::rename(greenspace = weighted_mean) %>%
-    # Factorize variables
-    dplyr::mutate(distance = distance %>% as.numeric() %>% as.factor(),
-                  raster = raster %>% as.factor(),
-                  id_dao = id_dao %>% as.factor()) %>%
-    # Rescale NLCD % Tree canopy to between 0-1
-    dplyr::mutate(greenspace = dplyr::case_when(
-      raster == "nlcd_26953" ~ greenspace/100,
-      TRUE ~ greenspace)) %>%
-    # Remove unnecessary variables
-    dplyr::select(-c(weight, weighted_value, type))
-}
-
-# Yearly
-gs_df <- raw_greenspaceall_geometry %>%
-  # Remove distance 2000 & 4000
-  dplyr::filter(!(distance %in% c("2000", "4000"))) %>%
-  # Create month = "All months"
-  dplyr::mutate(month = "All months") %>%
-  clean_greenspace()
-
-# NLCD
-gs_nlcd_df <- gs_df %>%
-  dplyr::filter(raster == "nlcd_26953")
-
-# Monthly
-gs_monthly_list <- raw_greenspaceall_geometry_monthly %>%
-  dplyr::mutate(raster = raster %>% stringr::str_sub(1, -4)) %>%
-  dplyr::mutate(month = month %>% as.factor()) %>%
-  clean_greenspace() %>%
-  dplyr::group_split(month) %>%
-  purrr::map2(c(1:12) %>% stringr::str_pad(2, pad = "0"),
-              function(x, y){
-                nlcd <- gs_nlcd_df %>% dplyr::mutate(month = y)
-                x %>% dplyr::bind_rows(nlcd)
-              })
-
-# All
-gs_all_list <- append(gs_df %>% list(),
-                      gs_monthly_list)
-gs_all_pair_list <- gs_all_list %>%
-  purrr::map(function(x) {c("landsat_26953", "nlcd_26953", "modis_26953") %>%
-      purrr::map(~x %>%
-                   dplyr::filter(!(raster %in% c(.x))))
-  })
-
-save_data(gs_all_list,
-          "DATA/Processed/Aim2/Agreement_summer/gs_all_list",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/gs_all_list",
-          csv = FALSE)
-save_data(gs_all_pair_list,
-          "DATA/Processed/Aim2/Agreement_summer/gs_all_pair_list",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/gs_all_pair_list",
-          csv = FALSE)
+# # Create a function to clean greenspace data
+# clean_greenspace <- function(raw_gs_df) {
+#   tibble::as_tibble(raw_gs_df) %>%
+#     # Rename to greenspace
+#     dplyr::rename(greenspace = weighted_mean) %>%
+#     # Factorize variables
+#     dplyr::mutate(distance = distance %>% as.numeric() %>% as.factor(),
+#                   raster = raster %>% as.factor(),
+#                   id_dao = id_dao %>% as.factor()) %>%
+#     # Rescale NLCD % Tree canopy to between 0-1
+#     dplyr::mutate(greenspace = dplyr::case_when(
+#       raster == "nlcd_26953" ~ greenspace/100,
+#       TRUE ~ greenspace)) %>%
+#     # Remove unnecessary variables
+#     dplyr::select(-c(weight, weighted_value, type))
+# }
+#
+# # Summer months
+# gs_df <- raw_greenspaceall_geometry %>%
+#   # Remove distance 2000 & 4000
+#   dplyr::filter(!(distance %in% c("2000", "4000"))) %>%
+#   # Create month = "summer months"
+#   dplyr::mutate(month = "summer months") %>%
+#   clean_greenspace()
+#
+# # All
+# gs_all_list <- list(gs_df)
+# gs_all_pair_list <- gs_all_list %>%
+#   purrr::map(function(x) {c("landsat_26953", "nlcd_26953", "modis_26953") %>%
+#       purrr::map(~x %>%
+#                    dplyr::filter(!(raster %in% c(.x))))
+#   })
+#
+# save_data(gs_all_list,
+#           "DATA/Processed/Aim2/Agreement_summer/gs_all_list",
+#           "DATA/Processed/Aim2/Agreement_summer/Archived/gs_all_list",
+#           csv = FALSE)
+# save_data(gs_all_pair_list,
+#           "DATA/Processed/Aim2/Agreement_summer/gs_all_pair_list",
+#           "DATA/Processed/Aim2/Agreement_summer/Archived/gs_all_pair_list",
+#           csv = FALSE)
 
 gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_list.rds")
 gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_pair_list.rds")
@@ -151,11 +136,11 @@ gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all
 # 1. Linear mixed-model ---------------------------------------------------
 
 # # List of model info
-# lmer_info <- tibble::tibble(month = rep(c(0:12) %>% stringr::str_pad(2, pad = "0"), each = 3),
-#                             landsat_26953 = rep(c(0,1,1), times = 13),
-#                             nlcd_26953 = rep(c(1,0,1), times = 13),
-#                             modis_26953= rep(c(1,1,0), times = 13)) %>%
-#   split(seq(nrow(.)))
+lmer_info <- tibble::tibble(month = rep(c("summer months"), each = 3),
+                            landsat_26953 = rep(c(0,1,1), times = 1),
+                            nlcd_26953 = rep(c(1,0,1), times = 1),
+                            modis_26953= rep(c(1,1,0), times = 1)) %>%
+  split(seq(nrow(.)))
 #
 #
 # #Mixed effects model (1) in the main paper
@@ -215,7 +200,7 @@ gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all
 #     tictoc::toc()
 #     result <- list(res_diff_1, res_diff_1_sum)
 #   })
-
+#
 # save_data(lmer_res_diff,
 #           "DATA/Processed/Aim2/Agreement_summer/lmer_res_diff",
 #           "DATA/Processed/Aim2/Agreement_summer/Archived/lmer_res_diff",
@@ -242,95 +227,96 @@ lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_re
 
 # Agreement statistics ----------------------------------------------------
 
-create_agreement_stats <- function(lmer_res, lmer_res_diff, lmer_res_diff_1,
-                                   p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
-  # Get summary
-  res_sum <- lmer_res[[2]]
-  res_diff_sum <- lmer_res_diff[[2]]
-  res_diff_1_sum <- lmer_res_diff_1[[2]]
-
-  # beta coefficient (Estimate) for raster
-  beta2.est <- coef(res_sum)[2]
-  # varcor for id_dao
-  sigma2.alpha.est <- res_sum$varcor$id_dao %>% attr("stddev") %>% as.numeric()
-  # varcor for distance
-  sigma2.gamma.est <- res_sum$varcor$distance %>% attr("stddev") %>% as.numeric()
-  # varcor for id_dao:distance
-  sigma2.alpha.gamma.est <- res_sum$varcor$`id_dao:distance` %>% attr("stddev") %>% as.numeric()
-  # varcor for id_dao:raster
-  sigma2.alpha.beta.est <- res_sum$varcor$`id_dao:raster` %>% attr("stddev") %>% as.numeric()
-  # varcor for distance:raster
-  sigma2.beta.gamma.est <- res_sum$varcor$`distance:raster` %>% attr("stddev") %>% as.numeric()
-  # varcor for error (residual)
-  sigma2.epsilon.est <- as.numeric(res_sum$sigma)^2
-  # squared beta coefficient (Estimate) for raster
-  phi2.beta.est <- beta2.est^2
-
-  #Concordance correlation coefficient
-  num_ccc <- sigma2.alpha.est + sigma2.gamma.est + sigma2.alpha.gamma.est
-  den_ccc <- sigma2.alpha.est + phi2.beta.est + sigma2.gamma.est +
-    sigma2.alpha.gamma.est + sigma2.alpha.beta.est +
-    sigma2.beta.gamma.est + sigma2.epsilon.est
-  CCC <- num_ccc/den_ccc
-  #Mean squared deviation
-  MSD <- (beta2.est^2) + 2*(sigma2.alpha.beta.est+sigma2.beta.gamma.est+sigma2.epsilon.est)
-  #Total deviation index
-  # p <- c(0.90, 0.95)
-  TDI <- (qnorm((1+p)/2)*sqrt(MSD)) %>% list()
-  #Coverage probability
-  # delta <- c(0.05, 0.1)
-  CP <- (1-2*(1-pnorm(delta/sqrt(MSD)))) %>% list()
-  #Coefficient of individual agreement
-  CIA <- 2*sigma2.epsilon.est/MSD
-
-  # Limits of agreement (mixed model approach--modelling the differences)
-  # totalsd
-  totalsd <- sqrt(as.numeric(res_diff_sum$varcor[1]) +
-                    as.numeric(res_diff_sum$varcor[2]) +
-                    as.numeric(res_diff_sum$sigma^2))
-  # meanb
-  meanb <- coef(res_diff_1_sum)[1]
-  # lcl; ucl
-  # alpha <- 0.05
-  z <- qnorm(1-alpha/2)
-  lcl <- meanb - z*totalsd
-  ucl <- meanb + z*totalsd
-  #limits of agreement (mixed model approach--raw data)
-  ll_raw <- beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
-  ul_raw <- beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
-  mean_raw <- beta2.est
-
-  # Exported df
-  var_stat_df <- tibble::tibble(beta2.est,
-                                sigma2.alpha.est,
-                                sigma2.gamma.est,
-                                sigma2.alpha.gamma.est,
-                                sigma2.alpha.beta.est,
-                                sigma2.beta.gamma.est,
-                                sigma2.epsilon.est,
-                                phi2.beta.est,
-                                CCC, MSD, TDI, CP, CIA,
-                                totalsd, meanb, lcl, ucl, mean_raw, ll_raw, ul_raw)
-}
-
-# Create a df for purrr::map()
-map_df <- tibble::tibble(lmer_res,
-                         lmer_res_diff,
-                         lmer_res_diff_1)
-
-agreement_stat_df <- purrr::pmap(map_df, .f = create_agreement_stats) %>%
-  # Added information on the model
-  purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
-  # Combine all df
-  dplyr::bind_rows()
-
-save_data(agreement_stat_df,
-          "DATA/Processed/Aim2/Agreement_summer/agreement_stat_df_pairwise_allmonths",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/agreement_stat_df_pairwise_allmonths")
-
-
-
-
+# lmer_info <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_info.rds")
+# lmer_res <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_res.rds")
+# lmer_res_diff <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_res_diff.rds")
+# lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_res_diff_1.rds")
+#
+# create_agreement_stats <- function(lmer_res, lmer_res_diff, lmer_res_diff_1,
+#                                    p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
+#   # Get summary
+#   res_sum <- lmer_res[[2]]
+#   res_diff_sum <- lmer_res_diff[[2]]
+#   res_diff_1_sum <- lmer_res_diff_1[[2]]
+#
+#   # beta coefficient (Estimate) for raster
+#   beta2.est <- coef(res_sum)[2]
+#   # varcor for id_dao
+#   sigma2.alpha.est <- res_sum$varcor$id_dao %>% attr("stddev") %>% as.numeric()
+#   # varcor for distance
+#   sigma2.gamma.est <- res_sum$varcor$distance %>% attr("stddev") %>% as.numeric()
+#   # varcor for id_dao:distance
+#   sigma2.alpha.gamma.est <- res_sum$varcor$`id_dao:distance` %>% attr("stddev") %>% as.numeric()
+#   # varcor for id_dao:raster
+#   sigma2.alpha.beta.est <- res_sum$varcor$`id_dao:raster` %>% attr("stddev") %>% as.numeric()
+#   # varcor for distance:raster
+#   sigma2.beta.gamma.est <- res_sum$varcor$`distance:raster` %>% attr("stddev") %>% as.numeric()
+#   # varcor for error (residual)
+#   sigma2.epsilon.est <- as.numeric(res_sum$sigma)^2
+#   # squared beta coefficient (Estimate) for raster
+#   phi2.beta.est <- beta2.est^2
+#
+#   #Concordance correlation coefficient
+#   num_ccc <- sigma2.alpha.est + sigma2.gamma.est + sigma2.alpha.gamma.est
+#   den_ccc <- sigma2.alpha.est + phi2.beta.est + sigma2.gamma.est +
+#     sigma2.alpha.gamma.est + sigma2.alpha.beta.est +
+#     sigma2.beta.gamma.est + sigma2.epsilon.est
+#   CCC <- num_ccc/den_ccc
+#   #Mean squared deviation
+#   MSD <- (beta2.est^2) + 2*(sigma2.alpha.beta.est+sigma2.beta.gamma.est+sigma2.epsilon.est)
+#   #Total deviation index
+#   # p <- c(0.90, 0.95)
+#   TDI <- (qnorm((1+p)/2)*sqrt(MSD)) %>% list()
+#   #Coverage probability
+#   # delta <- c(0.05, 0.1)
+#   CP <- (1-2*(1-pnorm(delta/sqrt(MSD)))) %>% list()
+#   #Coefficient of individual agreement
+#   CIA <- 2*sigma2.epsilon.est/MSD
+#
+#   # Limits of agreement (mixed model approach--modelling the differences)
+#   # totalsd
+#   totalsd <- sqrt(as.numeric(res_diff_sum$varcor[1]) +
+#                     as.numeric(res_diff_sum$varcor[2]) +
+#                     as.numeric(res_diff_sum$sigma^2))
+#   # meanb
+#   meanb <- coef(res_diff_1_sum)[1]
+#   # lcl; ucl
+#   # alpha <- 0.05
+#   z <- qnorm(1-alpha/2)
+#   lcl <- meanb - z*totalsd
+#   ucl <- meanb + z*totalsd
+#   #limits of agreement (mixed model approach--raw data)
+#   ll_raw <- beta2.est - z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
+#   ul_raw <- beta2.est + z*sqrt(2*sigma2.alpha.beta.est + 2*sigma2.beta.gamma.est + 2*sigma2.epsilon.est)
+#   mean_raw <- beta2.est
+#
+#   # Exported df
+#   var_stat_df <- tibble::tibble(beta2.est,
+#                                 sigma2.alpha.est,
+#                                 sigma2.gamma.est,
+#                                 sigma2.alpha.gamma.est,
+#                                 sigma2.alpha.beta.est,
+#                                 sigma2.beta.gamma.est,
+#                                 sigma2.epsilon.est,
+#                                 phi2.beta.est,
+#                                 CCC, MSD, TDI, CP, CIA,
+#                                 totalsd, meanb, lcl, ucl, mean_raw, ll_raw, ul_raw)
+# }
+#
+# # Create a df for purrr::map()
+# map_df <- tibble::tibble(lmer_res,
+#                          lmer_res_diff,
+#                          lmer_res_diff_1)
+#
+# agreement_stat_df <- purrr::pmap(map_df, .f = create_agreement_stats) %>%
+#   # Added information on the model
+#   purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
+#   # Combine all df
+#   dplyr::bind_rows()
+#
+# save_data(agreement_stat_df,
+#           "DATA/Processed/Aim2/Agreement_summer/agreement_stat_df_pairwise_allmonths",
+#           "DATA/Processed/Aim2/Agreement_summer/Archived/agreement_stat_df_pairwise_allmonths")
 
 
 
@@ -645,9 +631,10 @@ save_data(quantile_list,
 
 # Agreement, 3 raster -----------------------------------------------------
 
+# gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_list.rds")
+#
 # #Mixed effects model (1) in the main paper
-# lmer3_res <- gs_all_df %>%
-#   dplyr::group_split(month) %>%
+# lmer3_res <- gs_all_list %>%
 #   purrr::map(function(df){
 #     tictoc::tic("lme4::lmer() for 3 raster")
 #     res <- lme4::lmer(greenspace ~ raster +
