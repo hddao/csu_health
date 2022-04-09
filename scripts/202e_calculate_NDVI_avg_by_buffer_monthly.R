@@ -169,6 +169,6 @@ save_data(greenspaceall[[1]],
 
 save_data(greenspaceall[[2]],
           "DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_school_monthly",
-          "DATA/Processed/Aim2/Greenspace/Archived/aim2_greenspaceall_geometry_monthly")
+          "DATA/Processed/Aim2/Greenspace/Archived/aim2_greenspaceall_school_monthly")
 
 
