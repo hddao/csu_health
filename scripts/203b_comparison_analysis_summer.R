@@ -371,11 +371,6 @@ lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_re
 
 # * Get lmer() model summary: res, res_diff, res_diff_1 -------------------
 
-files <- list.files(path = "DATA/Processed/Aim2/Agreement_summer/Bootstrap/",
-                    pattern = "^boot_data_\\d{3}\\.rds$",
-                    full.names = TRUE) %>%
-  sort()
-
 # Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
 get_mixed_model_sum <- function(file_location){
   B <- file_location %>% stringr::str_sub(-7, -5)
@@ -453,8 +448,16 @@ get_mixed_model_sum <- function(file_location){
   B
 }
 
+files <- list.files(path = "DATA/Processed/Aim2/Agreement_summer/Bootstrap/",
+                    pattern = "^boot_data_\\d{3}\\.rds$",
+                    full.names = TRUE) %>%
+  sort()
+
 # Run and export mixed model
-lmer_sum <- files %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[250:500] %>% purrr::map(get_mixed_model_sum)
+
+
+
 
 # res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD") consequentially
 
