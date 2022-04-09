@@ -362,7 +362,7 @@ lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_re
 # # Prepare dataset to run purrr::pmap()
 # map_df <- tidyr::crossing(data = gs_all_list[1],
 #                           n = 21950,
-#                           B = c(11:500))
+#                           B = c(1:500))
 # # Create list of boot samples
 # boot_data <- map_df %>%
 #   # Create boot sample for 3 set of df
