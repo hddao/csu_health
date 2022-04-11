@@ -11,7 +11,7 @@ source("scripts/Functions/save_data.R")
 
 
 # Descriptive table -------------------------------------------------------
-gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_list.rds")
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
 
 aim2_desc <- gs_all_list[[1]] %>%
   dplyr::mutate(distance = distance %>% stringr::str_pad(4, pad = "0")) %>%
@@ -20,8 +20,8 @@ aim2_desc <- gs_all_list[[1]] %>%
                      values_from = greenspace,
                      names_prefix = "gs_")
 save_data(aim2_desc,
-          "DATA/Processed/Aim2/Agreement_summer/aim2_desc",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc",
+          "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc",
           xlsx = TRUE)
 
 # Export and run sas code for descriptive table
@@ -34,8 +34,8 @@ aim2_desc_text <- gs_all_list[[1]] %>%
   dplyr::group_by(raster) %>%
   dplyr::summarise(gs_mean = mean(greenspace), gs_sd = sd(greenspace))
 save_data(aim2_desc_text,
-          "DATA/Processed/Aim2/Agreement_summer/aim2_desc_text",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc_text")
+          "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_text",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc_text")
 
 
 # Desc table
@@ -112,16 +112,16 @@ aim2_desc_table_3 <- aim2_desc %>%
   dplyr::mutate(`Buffer radius (m)` = ifelse(raster %in% c("MODIS", "NLCD"), "", `Buffer radius (m)`))
 
 save_data(aim2_desc_table_1,
-          "DATA/Processed/Aim2/Agreement_summer/aim2_desc_table_1",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc_table_1",
+          "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_1",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc_table_1",
           xlsx = TRUE, csv = FALSE)
 save_data(aim2_desc_table_2,
-          "DATA/Processed/Aim2/Agreement_summer/aim2_desc_table_2",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc_table_2",
+          "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_2",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc_table_2",
           xlsx = TRUE, csv = FALSE)
 save_data(aim2_desc_table_3,
-          "DATA/Processed/Aim2/Agreement_summer/aim2_desc_table_3",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc_table_3",
+          "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_3",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc_table_3",
           xlsx = TRUE, csv = FALSE)
 
 # Histogram ---------------------------------------------------------------
@@ -233,7 +233,7 @@ p <- gridExtra::arrangeGrob(hist_list[[1]], hist_list[[2]], hist_list[[3]],
                             hist_list[[4]], hist_list[[5]], hist_list[[6]],
                             nrow=2, ncol=3)
 ggplot2::ggsave(plot = p,
-                "outputs/figures/Aim2/summer/histogram_by_radius_raster.jpg",
+                "outputs/figures/Aim2/summerclear/histogram_by_radius_raster.jpg",
                 device = "jpeg",
                 width = 15,
                 height = 10,
@@ -242,7 +242,7 @@ ggplot2::ggsave(plot = p,
 
 # Scatter plots & equality line -------------------------------------------
 
-gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_pair_list.rds")
+gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_pair_list.rds")
 
 gs_desc_df <- gs_all_pair_list[1] %>%
   purrr::map(function(x){
@@ -285,7 +285,7 @@ tictoc::tic("ggsave")
 scatterplot[[1]] %>%
   purrr::map2(c(1:3),
               ~ggplot2::ggsave(plot = .x,
-                              paste0("outputs/figures/Aim2/summer/scatterplot_nejm_",
+                              paste0("outputs/figures/Aim2/summerclear/scatterplot_nejm_",
                                      .y,
                                      ".jpg"),
                               device = "jpeg",
@@ -297,7 +297,7 @@ tictoc::toc()
 
 # Variance Components -----------------------------------------------------
 
-lmer3_res <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer3_res.rds")
+lmer3_res <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/lmer3_res.rds")
 
 # Create a function to get agreement stats from lmer model summary
 create_agreement_stats <- function(res_sum,
@@ -391,14 +391,14 @@ agreement_stat_3_df <- lmer3_res[[1]][[2]] %>%
 
 
 save_data(agreement_stat_3_df,
-          "DATA/Processed/Aim2/Agreement_summer/agreement_stat_3_df",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/agreement_stat_3_df")
+          "DATA/Processed/Aim2/Agreement_summerclear/agreement_stat_3_df",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/agreement_stat_3_df")
 
 
 
 # Agreement table ---------------------------------------------------------
-agreement_stat_df <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/agreement_stat_df_pairwise_allmonths.rds")
-quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/quantile_list.rds")
+agreement_stat_df <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/agreement_stat_df_pairwise_allmonths.rds")
+quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/quantile_list.rds")
 
 
 # Create a reference df for raster pair
@@ -499,16 +499,16 @@ agreement_table_wide <- dplyr::full_join(agreement_table, quantile_df,
   dplyr::select(c("Agreement Statistics", "MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
 
 save_data(agreement_table_wide,
-          "DATA/Processed/Aim2/Agreement_summer/agreement_table_wide",
-          "DATA/Processed/Aim2/Agreement_summer/Archived/agreement_table_wide",
+          "DATA/Processed/Aim2/Agreement_summerclear/agreement_table_wide",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/agreement_table_wide",
           csv = FALSE, xlsx = TRUE)
 
 
 # Bland-Altman plots ------------------------------------------------------
 
-gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_pair_list.rds")
-quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/quantile_list.rds")
-agreement_stat_df <- "DATA/Processed/Aim2/Agreement_summer/agreement_stat_df_pairwise_allmonths.rds"
+gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_pair_list.rds")
+quantile_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/quantile_list.rds")
+agreement_stat_df <- "DATA/Processed/Aim2/Agreement_summerclear/agreement_stat_df_pairwise_allmonths.rds"
 
 
 # # Get color palette
@@ -629,7 +629,7 @@ ba_plot <- map_df %>%
       ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab))
 
     # Export
-    ggplot2::ggsave(paste0("outputs/figures/Aim2/summer/blandaltman_",
+    ggplot2::ggsave(paste0("outputs/figures/Aim2/summerclear/blandaltman_",
                            suffix,
                            ".jpg"),
                     device = "jpeg",
