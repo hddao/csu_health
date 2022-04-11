@@ -125,7 +125,7 @@ save_data(aim2_desc_table_3,
           xlsx = TRUE, csv = FALSE)
 
 # Histogram ---------------------------------------------------------------
-gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_list.rds")
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
 
 gs_00_df <- gs_all_list[[1]] %>%
   dplyr::mutate(raster = raster %>% dplyr::recode("landsat_26953" = "Landsat 8",
@@ -135,7 +135,8 @@ gs_00_df <- gs_all_list[[1]] %>%
                 `Greenspace source` = raster,
                 `Buffer radius (m)` = distance) %>%
   dplyr::mutate(`Buffer radius (m)` = `Buffer radius (m)` %>%
-                  as.character())
+                  as.character()) %>%
+  dplyr::mutate(gs_br = paste0(`Greenspace source`, " - ", `Buffer radius (m)`, "m"))
 
 mu <- plyr::ddply(gs_00_df, "`Greenspace source`",
                   dplyr::summarise, grp.mean=mean(`Greenspace measurement`))
@@ -144,7 +145,7 @@ mu <- plyr::ddply(gs_00_df, "`Greenspace source`",
 p<-ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Greenspace source`)) +
   ggplot2::geom_histogram(fill="white", position="dodge")+
   ggplot2::geom_vline(data=mu, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
-             linetype="dashed") +
+                      linetype="dashed") +
   ggplot2::theme_bw() +
   ggplot2::theme(legend.position = c(0.95, 0.95),
                  legend.justification = c("right", "top"),
@@ -155,7 +156,7 @@ p<-ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Gre
   ggplot2::ylab("Count")
 
 ggplot2::ggsave(plot = p,
-                "outputs/figures/Aim2/summer/histogram_by_raster.jpg",
+                "outputs/figures/Aim2/histogram_by_raster.jpg",
                 device = "jpeg",
                 width = 6.5,
                 height = 4,
@@ -180,12 +181,11 @@ ggplot2::ggsave(plot = p,
 #                        hist_list[[4]], hist_list[[5]], hist_list[[6]],
 #                        nrow=2, ncol=3)
 # ggplot2::ggsave(plot = p,
-#                 "outputs/figures/Aim2/summer/histogram_by_radius.jpg",
+#                 "outputs/figures/Aim2/histogram_by_radius.jpg",
 #                 device = "jpeg",
 #                 width = 15,
 #                 height = 10,
 #                 units = "in")
-
 
 # Histogram by raster & radius
 
@@ -217,6 +217,7 @@ hist_list <- map_df %>%
                      legend.justification = c("right", "top"),
                      legend.box.just = "left") +
       ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+      # ggplot2::theme(legend.position="bottom") +
       ggsci::scale_color_nejm() +
       ggplot2::ylab("Count") +
       ggplot2::annotate("label", x=0.5, y=7500,
@@ -376,7 +377,7 @@ agreement_full_desc_df <- tibble::tibble(
                              "Variance from error term",
                              "Variance from raster"))
 
-agreement_stat_3_df <- lmer3_res[[13]][[2]] %>%
+agreement_stat_3_df <- lmer3_res[[1]][[2]] %>%
   create_agreement_stats() %>%
   # select only needed stats
   dplyr::select(msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
@@ -476,7 +477,7 @@ quantile_df <- quantile_list %>%
 
 agreement_table <- agreement_stat_df %>%
   # filter to agreement stats for all months
-  dplyr::filter(month == "00") %>%
+  dplyr::filter(month == "summer months") %>%
   # Transpose and rename
   t() %>% tibble::as_tibble(rownames = NA) %>%
   tibble::rownames_to_column() %>%
@@ -541,7 +542,7 @@ agreement_list <- agreement_stat_df %>%
   readr::read_rds() %>%
   dplyr::rename_all(base::tolower) %>%
   # filter to agreement stats for all months
-  dplyr::filter(month == "00") %>%
+  dplyr::filter(month == "summer months") %>%
   # change cp and tdi from list to numeric
   dplyr::mutate(cp_05 = cp %>% purrr::map(dplyr::first) %>% as.numeric(),
                 cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
