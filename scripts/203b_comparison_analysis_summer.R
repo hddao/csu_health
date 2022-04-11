@@ -225,8 +225,7 @@ lmer_res_diff <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_res_
 lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_res_diff_1.rds")
 
 
-
-# Agreement statistics ----------------------------------------------------
+# 2. Agreement statistics -------------------------------------------------
 
 # lmer_info <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_info.rds")
 # lmer_res <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_res.rds")
@@ -322,8 +321,8 @@ lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_re
 
 
 
-# Bootstrap ---------------------------------------------------------------
-# * Create boot samples ---------------------------------------------------
+# 3. Bootstrap ------------------------------------------------------------
+# * a. Create boot samples ------------------------------------------------
 
 # set.seed(123)
 # gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_list.rds")
@@ -369,7 +368,7 @@ lmer_res_diff_1 <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/lmer_re
 #   purrr::pwalk(create_boot_sample)
 
 
-# * Get lmer() model summary: res, res_diff, res_diff_1 -------------------
+# * b. Get lmer() model summary: res, res_diff, res_diff_1 ----------------
 
 # Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
 get_mixed_model_sum <- function(file_location){
@@ -471,7 +470,7 @@ lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
 
 
-# * Caculate and export agreement stats -----------------------------------
+# * c. Caculate and export agreement stats --------------------------------
 
 # Get a df of all lmer model summary
 files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summer/Bootstrap/",
@@ -597,13 +596,15 @@ stat <- files_df %>%
     gc()
     B
   })
+# EACH create map_df 031: ~27 sec elapsed
+# EACH create agreement_stat_df 031: ~0.05 sec elapsed
+# EACH Export 031: ~0.02 sec elapsed
 
 
 
 
 
-
-# * Get quantile 0.025 & 0.975 --------------------------------------------
+# * d. Get quantile 0.025 & 0.975 -----------------------------------------
 
 # Create a reference df for raster pair
 pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
@@ -634,14 +635,13 @@ quantile_list <- agreement_stat_all_list %>%
                tibble::rownames_to_column()) %>%
   purrr::map(~.x %>% dplyr::left_join(pair_df, by = c("landsat_26953", "modis_26953", "nlcd_26953")))
 
-
 save_data(quantile_list,
           "DATA/Processed/Aim2/Agreement_summer/quantile_list",
           "DATA/Processed/Aim2/Agreement_summer/Archived/quantile_list",
           csv = FALSE)
 
 
-# Agreement, 3 raster -----------------------------------------------------
+# 4. Agreement, 3 raster --------------------------------------------------
 
 # gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summer/gs_all_list.rds")
 #
