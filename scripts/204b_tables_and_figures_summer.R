@@ -87,6 +87,29 @@ aim2_desc_table_1 <- aim2_desc_table %>%
 aim2_desc_table_2 <- aim2_desc_table %>%
   dplyr::filter(!(`Greenspace buffer radii` %in% c("  Median", "  Q1-Q3", "  n")))
 
+aim2_desc_table_3 <- aim2_desc %>%
+  dplyr::select(-id_dao) %>%
+  dplyr::group_split(raster) %>%
+  purrr::map(vtable::st, out = "csv", add.median = TRUE) %>%
+  purrr::map(~.x %>%
+               dplyr::filter(Variable %>% stringr::str_detect("gs_")) %>%
+               dplyr::mutate(`Buffer radius (m)` = dplyr::case_when(
+                 Variable == "gs_0025" ~ "25m",
+                 Variable == "gs_0050" ~ "50m",
+                 Variable == "gs_0100" ~ "100m",
+                 Variable == "gs_0250" ~ "250m",
+                 Variable == "gs_0500" ~ "500m",
+                 Variable == "gs_1000" ~ "1000m")) %>%
+               dplyr::rename(n = N, Median = `Pctl. 50`, SD = `Std. Dev.`,
+                             Q1 = `Pctl. 25`, Q3 = `Pctl. 75`,
+                             Minimum = Min, Maximum = Max)
+  ) %>%
+  purrr::map2(c("Landsat 8", "MODIS", "NLCD"),
+              ~.x %>% dplyr::mutate(raster = .y)) %>%
+  dplyr::bind_rows() %>%
+  dplyr::arrange(Variable, raster) %>%
+  dplyr::select(`Buffer radius (m)`, raster, n, Mean, SD, Median, Q1, Q3, Minimum, Maximum) %>%
+  dplyr::mutate(`Buffer radius (m)` = ifelse(raster %in% c("MODIS", "NLCD"), "", `Buffer radius (m)`))
 
 save_data(aim2_desc_table_1,
           "DATA/Processed/Aim2/Agreement_summer/aim2_desc_table_1",
@@ -95,6 +118,10 @@ save_data(aim2_desc_table_1,
 save_data(aim2_desc_table_2,
           "DATA/Processed/Aim2/Agreement_summer/aim2_desc_table_2",
           "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc_table_2",
+          xlsx = TRUE, csv = FALSE)
+save_data(aim2_desc_table_3,
+          "DATA/Processed/Aim2/Agreement_summer/aim2_desc_table_3",
+          "DATA/Processed/Aim2/Agreement_summer/Archived/aim2_desc_table_3",
           xlsx = TRUE, csv = FALSE)
 
 # Histogram ---------------------------------------------------------------
@@ -134,26 +161,78 @@ ggplot2::ggsave(plot = p,
                 height = 4,
                 units = "in")
 
-# Histogram by buffer radius
-hist_list <- c("25", "50", "100", "250", "500", "1000") %>%
-  purrr::map(function(x) {
-    ggplot2::ggplot(gs_00_df %>%
-                      dplyr::filter(`Buffer radius (m)` == x),
-                    ggplot2::aes(x=`Greenspace measurement`, color=`Buffer radius (m)`)) +
-      ggplot2::geom_histogram(fill="white", position="dodge", show.legend = FALSE)+
+# # Histogram by buffer radius
+# hist_list <- c("25", "50", "100", "250", "500", "1000") %>%
+#   purrr::map(function(x) {
+#     ggplot2::ggplot(gs_00_df %>%
+#                       dplyr::filter(`Buffer radius (m)` == x),
+#                     ggplot2::aes(x=`Greenspace measurement`, color=`Buffer radius (m)`)) +
+#       ggplot2::geom_histogram(fill="white", position="dodge", show.legend = FALSE)+
+#       ggplot2::theme_bw() +
+#       ggsci::scale_color_nejm() +
+#       ggplot2::xlim(0, 0.6) +
+#       ggplot2::ylab("Count") +
+#       ggplot2::xlab(paste0("Greenspace measurement with buffer radius of ", x, "m")) +
+#       ggplot2::scale_y_continuous(breaks = seq(0, 12000, by = 2000),
+#                                   limits = c(0, 11000))
+#   })
+# p <- gridExtra::arrangeGrob(hist_list[[1]], hist_list[[2]], hist_list[[3]],
+#                        hist_list[[4]], hist_list[[5]], hist_list[[6]],
+#                        nrow=2, ncol=3)
+# ggplot2::ggsave(plot = p,
+#                 "outputs/figures/Aim2/summer/histogram_by_radius.jpg",
+#                 device = "jpeg",
+#                 width = 15,
+#                 height = 10,
+#                 units = "in")
+
+
+# Histogram by raster & radius
+
+mu_both <- plyr::ddply(gs_00_df, "gs_br",
+                       dplyr::summarise, grp.mean=mean(`Greenspace measurement`)) %>%
+  dplyr::mutate(`Buffer radius (m)` = gs_br %>%
+                  stringr::str_split(" - ") %>%
+                  purrr::map(dplyr::last) %>%
+                  as.character() %>%
+                  stringr::str_remove("m") %>%
+                  as.numeric()) %>%
+  dplyr::group_split(`Buffer radius (m)`)
+
+map_df <- tibble::tibble(
+  mu_both,
+  gs_00_df = gs_00_df %>%
+    dplyr::mutate(`Buffer radius (m)` = `Buffer radius (m)` %>% as.numeric()) %>%
+    dplyr::group_split(`Buffer radius (m)`))
+
+
+hist_list <- map_df %>%
+  purrr::pmap(function(mu_both, gs_00_df) {
+    ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Greenspace source`)) +
+      ggplot2::geom_histogram(fill="white", position="dodge")+
+      ggplot2::geom_vline(data=mu, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
+                          linetype="dashed") +
       ggplot2::theme_bw() +
+      ggplot2::theme(legend.position = c(0.95, 0.95),
+                     legend.justification = c("right", "top"),
+                     legend.box.just = "left") +
+      ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
       ggsci::scale_color_nejm() +
-      ggplot2::xlim(0, 0.6) +
       ggplot2::ylab("Count") +
-      ggplot2::xlab(paste0("Greenspace measurement with buffer radius of ", x, "m")) +
+      ggplot2::annotate("label", x=0.5, y=7500,
+                        hjust = 0,
+                        label= paste0(gs_00_df$`Buffer radius (m)`[1], "m radius")) +
       ggplot2::scale_y_continuous(breaks = seq(0, 12000, by = 2000),
-                                  limits = c(0, 11000))
+                                  limits = c(0, 11000)) +
+      ggplot2::scale_x_continuous(breaks = seq(0, 0.7, by = 0.1),
+                                  limits = c(0, 0.7))
   })
+
 p <- gridExtra::arrangeGrob(hist_list[[1]], hist_list[[2]], hist_list[[3]],
-                       hist_list[[4]], hist_list[[5]], hist_list[[6]],
-                       nrow=2, ncol=3)
+                            hist_list[[4]], hist_list[[5]], hist_list[[6]],
+                            nrow=2, ncol=3)
 ggplot2::ggsave(plot = p,
-                "outputs/figures/Aim2/summer/histogram_by_radius.jpg",
+                "outputs/figures/Aim2/summer/histogram_by_radius_raster.jpg",
                 device = "jpeg",
                 width = 15,
                 height = 10,
