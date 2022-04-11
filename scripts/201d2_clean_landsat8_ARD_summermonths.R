@@ -94,7 +94,7 @@ landsat8_ndvi_mean <- landsat8_ndvi_stack %>%
                                     overwrite = TRUE)
                  tictoc::toc()
                })
-# EACH terra::app: ~870 sec elapsed
+# EACH terra::app: ~350 sec elapsed
 
 # Mosaic ARD tiles --------------------------------------------------------
 # files_pr_summer_mean <- tibble::tibble(file_location = list.files(path = "DATA/Processed/Aim2/Landsat 8/",
