@@ -43,7 +43,6 @@ terra::writeRaster(landsat_26953,
 
 rm(modis_26953, landsat_26953)
 
-modis_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_modis_26953_summerclear.tif"
 landsat_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_landsat_26953_summerclear.tif"
 
 
@@ -89,14 +88,13 @@ id_buffer <- list(buffer_school_26953[[1]],
              "buffer_geometry_26953"))
 
 # Prepare lists df
-n_raster <- 2
+n_raster <- 1
 n_buffertype <- 2
 n_distance <- 8
 n_raster*n_buffertype*n_distance
 
-modis_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_modis_26953_summerclear.tif"
 landsat_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_landsat_26953_summerclear.tif"
-list_raster <- c(modis_26953, landsat_26953) %>%
+list_raster <- c(landsat_26953) %>%
   rep(each = n_distance, time = n_buffertype)
 
 list_buffer_type <- rep(c("school", "geometry"), each = n_distance*n_raster)
@@ -141,14 +139,14 @@ rm(list_buffer, list_raster, list_buffer_type, list_buffer_name, list_buffer_che
 
 # SCHOOL
 # only run buffer from 25m to 1000m
-list_df[1:16, ] %>%
+list_df[1:8, ] %>%
   dplyr::filter(!(distance_chr %in% c("2000", "4000"))) %>%
   purrr::pwalk(.f = export_greenspace_df_long)
 # RANGE export greenspace: 0.2 - 5.0 sec elapsed
 
 # GEOMETRY
 # only run buffer from 25m to 1000m
-list_df[17:32, ] %>%
+list_df[9:16, ] %>%
   dplyr::filter(!(distance_chr %in% c("2000", "4000"))) %>%
   purrr::pwalk(.f = export_greenspace_df_long)
 # RANGE export greenspace: 1500-2500 sec elapsed
