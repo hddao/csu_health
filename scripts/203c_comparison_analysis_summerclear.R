@@ -55,13 +55,8 @@ rm(raw_greenspaceall_geometry_landsat,
 
 
 # Prepare dataset ---------------------------------------------------------
-
-create_folder <- function(mainDir, subDir){
-  if(dir.exists(file.path(mainDir, subDir))) {dir.create(file.path(mainDir, subDir))
-    else {print("directory already exists")}}
-}
-create_folder("DATA/Processed/Aim2/",
-              "DATA/Processed/Aim2/Agreement_summerclear/")
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/", "Agreement_summerclear")
 
 
 # Create a function to clean greenspace data
@@ -381,7 +376,7 @@ map_df <- tidyr::crossing(data = gs_all_list[1],
 boot_data <- map_df %>%
   # Create boot sample for 3 set of df
   purrr::pwalk(create_boot_sample)
-
+# EACH create boot sample: ~43 sec elapsed
 
 # * b. Get lmer() model summary: res, res_diff, res_diff_1 ----------------
 
