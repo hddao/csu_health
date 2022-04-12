@@ -140,3 +140,11 @@ landsat8_summer <- terra::mosaic(files_pr_summer_mean,
 )
 tictoc::toc()
 # terra::mosaic: 29.72 sec elapsed
+
+# Explore landsat summerclear ---------------------------------------------
+
+landsat8_summerclear <- "DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear.tif" %>%
+  terra::rast()
+terra::hist(landsat8_summerclear)
+
+
