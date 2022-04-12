@@ -3,6 +3,7 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 
 source("scripts/Functions/save_data.R")
+source("scripts/Functions/create_folder.R")
 
 
 # Load Data ---------------------------------------------------------------
@@ -57,7 +58,7 @@ rm(raw_greenspaceall_geometry_landsat,
 # Prepare dataset ---------------------------------------------------------
 
 # Create an exported folder
-create_folder("DATA/Processed/Aim2/", "Agreement_summerclear1")
+create_folder("DATA/Processed/Aim2/", "Agreement_summerclear")
 create_folder("DATA/Processed/Aim2/Agreement_summerclear/", "Archived")
 
 
@@ -337,7 +338,7 @@ save_data(agreement_stat_df,
 # * a. Create boot samples ------------------------------------------------
 
 # Create an exported folder
-create_folder("DATA/Processed/Aim2/Agreement_summerclear/", "Bootstrap")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear", "Bootstrap")
 create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap", "Archived")
 
 set.seed(123)
