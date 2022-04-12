@@ -3,6 +3,7 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 
 source("scripts/Functions/save_data.R")
+source("scripts/Functions/create_folder.R")
 
 
 # Load Data ---------------------------------------------------------------
@@ -47,6 +48,10 @@ landsat_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_landsat_26953_
 
 
 # Prepare functions to calculate greenspace -------------------------------
+
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/Greenspace", "summerclear")
+create_folder("DATA/Processed/Aim2/Greenspace/summerclear", "Archived")
 
 export_greenspace_df_long <- function(buffer, raster, id_chr, id_df,
                                       raster_chr, distance_chr, buffer_type) {
