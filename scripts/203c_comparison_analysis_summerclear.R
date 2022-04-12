@@ -488,6 +488,11 @@ lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
 # * c. Caculate and export agreement stats --------------------------------
 
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/", "agreement_stat")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat", "Archived")
+
+
 # Get a df of all lmer model summary
 files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
                                                       pattern = "^res_sum_\\d{3}\\.rds$",
