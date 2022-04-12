@@ -238,11 +238,26 @@ landsat8_summer <- terra::mosaic(files_pr_summer_mean,
 tictoc::toc()
 # terra::mosaic: 29.72 sec elapsed
 
+
+# Rescale NDVI ------------------------------------------------------------
+
+lc8_summerclear <- raster::raster("DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear.tif" )
+lc8_summerclear_rescale <- lc8_summerclear*0.0001
+lc8_summerclear_rescale_positive <- raster::calc(lc8_summerclear_rescale, fun = function(x){ x[x < 0 | x > 1] <- NA; return(x)})
+lc8_summerclear_rescale_positive
+
+
+# Export
+raster::writeRaster(lc8_summerclear_rescale_positive,
+                    "DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear_rescaled.tif",
+                    format="GTiff",
+                    overwrite=TRUE)
+
 # Explore landsat summerclear ---------------------------------------------
 
-landsat8_summerclear <- "DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear.tif" %>%
+lc_ndvi <- "DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear_rescaled.tif" %>%
   terra::rast()
-terra::hist(landsat8_summerclear)
+terra::hist(lc_ndvi)
 
 
 
