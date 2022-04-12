@@ -55,8 +55,10 @@ rm(raw_greenspaceall_geometry_landsat,
 
 
 # Prepare dataset ---------------------------------------------------------
+
 # Create an exported folder
-create_folder("DATA/Processed/Aim2/", "Agreement_summerclear")
+create_folder("DATA/Processed/Aim2/", "Agreement_summerclear1")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/", "Archived")
 
 
 # Create a function to clean greenspace data
@@ -333,6 +335,10 @@ save_data(agreement_stat_df,
 
 # 3. Bootstrap ------------------------------------------------------------
 # * a. Create boot samples ------------------------------------------------
+
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/", "Bootstrap")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap", "Archived")
 
 set.seed(123)
 gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
