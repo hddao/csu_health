@@ -14,7 +14,7 @@ buffer_geometry_26953 <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_pr
   purrr::map(terra::vect)
 
 load_modis <- terra::rast("DATA/Processed/Aim2/MODIS/aim2_modis_avg_summer_20152019.tif")
-load_landsat <- terra::rast("DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear.tif")
+load_landsat <- terra::rast("DATA/Processed/Aim2/Landsat 8/landsat8_ndvi_summerclear_rescaled.tif")
 
 distance_buffer <- c(25, 50, 100, 250, 500, 1000, 2000, 4000) %>% as.character()
 
