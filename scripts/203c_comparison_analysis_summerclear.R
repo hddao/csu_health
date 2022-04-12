@@ -56,12 +56,9 @@ rm(raw_greenspaceall_geometry_landsat,
 
 # Prepare dataset ---------------------------------------------------------
 
-create_folder <- function(mainDir, subDir){
-  if(dir.exists(file.path(mainDir, subDir))) {dir.create(file.path(mainDir, subDir))
-    else {print("directory already exists")}}
-}
-create_folder("DATA/Processed/Aim2/",
-              "DATA/Processed/Aim2/Agreement_summerclear/")
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/", "Agreement_summerclear1")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/", "Archived")
 
 
 # Create a function to clean greenspace data
@@ -339,6 +336,10 @@ save_data(agreement_stat_df,
 # 3. Bootstrap ------------------------------------------------------------
 # * a. Create boot samples ------------------------------------------------
 
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/", "Bootstrap")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap", "Archived")
+
 set.seed(123)
 gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
 # create id_dao_df to merge with sample number
@@ -381,7 +382,7 @@ map_df <- tidyr::crossing(data = gs_all_list[1],
 boot_data <- map_df %>%
   # Create boot sample for 3 set of df
   purrr::pwalk(create_boot_sample)
-
+# EACH create boot sample: ~43 sec elapsed
 
 # * b. Get lmer() model summary: res, res_diff, res_diff_1 ----------------
 
@@ -486,6 +487,11 @@ lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
 
 # * c. Caculate and export agreement stats --------------------------------
+
+# Create an exported folder
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/", "agreement_stat")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat", "Archived")
+
 
 # Get a df of all lmer model summary
 files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
