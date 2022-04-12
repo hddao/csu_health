@@ -10,8 +10,8 @@ source("scripts/Functions/save_data.R")
 raw_greenspaceall_geometry_landsat <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summerclear.rds") %>%
   dplyr::mutate(raster = dplyr::recode(raster, "landsat_26953_summerclear" = "landsat_26953"))
 
-raw_greenspaceall_geometry_modis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summerclear.rds") %>%
-  dplyr::mutate(raster = dplyr::recode(raster, "modis_26953_summerclear" = "modis_26953")) %>%
+raw_greenspaceall_geometry_modis <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry_summer.rds") %>%
+  dplyr::mutate(raster = dplyr::recode(raster, "modis_26953_summer" = "modis_26953")) %>%
   dplyr::filter(raster == "modis_26953")
 
 raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_greenspaceall_geometry.rds") %>%
@@ -55,6 +55,14 @@ rm(raw_greenspaceall_geometry_landsat,
 
 
 # Prepare dataset ---------------------------------------------------------
+
+create_folder <- function(mainDir, subDir){
+  if(dir.exists(file.path(mainDir, subDir))) {dir.create(file.path(mainDir, subDir))
+    else {print("directory already exists")}}
+}
+create_folder("DATA/Processed/Aim2/",
+              "DATA/Processed/Aim2/Agreement_summerclear/")
+
 
 # Create a function to clean greenspace data
 clean_greenspace <- function(raw_gs_df) {
