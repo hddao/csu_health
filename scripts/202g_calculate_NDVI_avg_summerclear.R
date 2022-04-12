@@ -135,6 +135,11 @@ list_df <- tibble::tibble(buffer = list_buffer,
 rm(list_buffer, list_raster, list_buffer_type, list_buffer_name, list_buffer_check)
 
 
+list_df <- list_df %>%
+  dplyr::arrange(desc(buffer_type), desc(distance_chr %>% as.numeric()))
+
+
+
 # Calculate and export greenspace -----------------------------------------
 
 # SCHOOL
