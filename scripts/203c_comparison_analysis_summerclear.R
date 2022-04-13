@@ -596,8 +596,8 @@ run_agreement_stats <- function(df){
       # Export
       tictoc::tic(paste0("Export ", B))
       save_data(agreement_stat_df,
-                paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/agreement_stat/agreement_stat_df_", B),
-                paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/agreement_stat/Archived/agreement_stat_df_", B),
+                paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat/agreement_stat_df_", B),
+                paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat/Archived/agreement_stat_df_", B),
                 csv = FALSE)
       tictoc::toc()
       gc()
