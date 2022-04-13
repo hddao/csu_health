@@ -497,18 +497,6 @@ create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/", "agreement
 create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat", "Archived")
 
 
-# Get a df of all lmer model summary
-files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
-                                                      pattern = "^res_sum_\\d{3}\\.rds$",
-                                                      full.names = TRUE) %>% sort(),
-                           files_res_diff_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
-                                                           pattern = "^res_diff_sum_\\d{3}\\.rds$",
-                                                           full.names = TRUE) %>% sort(),
-                           files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
-                                                             pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
-                                                             full.names = TRUE) %>% sort())
-
-
 # Create a function to get agreement stats from lmer model summary
 create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
                                    p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
@@ -582,6 +570,41 @@ create_agreement_stats <- function(res_sum, res_diff_sum, res_diff_1_sum,
                   tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric())
 }
 
+# create function to get agreementstat for boot sample
+run_agreement_stats <- function(df){
+  df %>%
+    purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
+      B <- files_res_sum %>% stringr::str_sub(-7, -5)
+      # Create a df for purrr::map()
+      tictoc::tic(paste0("create map_df ", B))
+      map_df <- tibble::tibble(res_sum = files_res_sum %>% readr::read_rds(),
+                               res_diff_sum = files_res_diff_sum %>% readr::read_rds(),
+                               res_diff_1_sum = files_res_diff_1_sum %>% readr::read_rds())
+      tictoc::toc()
+
+      # Create agreement_stat_df
+      tictoc::tic(paste0("create agreement_stat_df ", B))
+      agreement_stat_df <- map_df %>% purrr::pmap(create_agreement_stats) %>%
+        # Added information on the model
+        purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
+        # Combine all df
+        dplyr::bind_rows() %>%
+        # Create a variable for sample id
+        dplyr::mutate(b = B)
+      tictoc::toc()
+
+      # Export
+      tictoc::tic(paste0("Export ", B))
+      save_data(agreement_stat_df,
+                paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/agreement_stat/agreement_stat_df_", B),
+                paste0("DATA/Processed/Aim2/Agreement_summer/Bootstrap/agreement_stat/Archived/agreement_stat_df_", B),
+                csv = FALSE)
+      tictoc::toc()
+      gc()
+      B
+    })
+}
+
 # List of model info
 lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
                             nlcd_26953 = c(1,0,1),
@@ -589,38 +612,23 @@ lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
                             pair = c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD")) %>%
   split(seq(nrow(.)))
 
+# Get a df of all lmer model summary
+files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
+                                                      pattern = "^res_sum_\\d{3}\\.rds$",
+                                                      full.names = TRUE) %>% sort(),
+                           files_res_diff_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
+                                                           pattern = "^res_diff_sum_\\d{3}\\.rds$",
+                                                           full.names = TRUE) %>% sort(),
+                           files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
+                                                             pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
+                                                             full.names = TRUE) %>% sort())
+
+
 # Calculate agreement stats and export
-stat <- files_df %>%
-  purrr::pmap(function(files_res_sum, files_res_diff_sum, files_res_diff_1_sum) {
-    B <- files_res_sum %>% stringr::str_sub(-7, -5)
-    # Create a df for purrr::map()
-    tictoc::tic(paste0("create map_df ", B))
-    map_df <- tibble::tibble(res_sum = files_res_sum %>% readr::read_rds(),
-                             res_diff_sum = files_res_diff_sum %>% readr::read_rds(),
-                             res_diff_1_sum = files_res_diff_1_sum %>% readr::read_rds())
-    tictoc::toc()
+stat <- files_df[1:170, ] %>% run_agreement_stats()
+stat <- files_df[171:340, ] %>% run_agreement_stats()
+stat <- files_df[341:500, ] %>% run_agreement_stats()
 
-    # Create agreement_stat_df
-    tictoc::tic(paste0("create agreement_stat_df ", B))
-    agreement_stat_df <- map_df %>% purrr::pmap(create_agreement_stats) %>%
-      # Added information on the model
-      purrr::map2(lmer_info, function(df1, df2) {dplyr::bind_cols(df1, df2)}) %>%
-      # Combine all df
-      dplyr::bind_rows() %>%
-      # Create a variable for sample id
-      dplyr::mutate(b = B)
-    tictoc::toc()
-
-    # Export
-    tictoc::tic(paste0("Export ", B))
-    save_data(agreement_stat_df,
-              paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat/agreement_stat_df_", B),
-              paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/agreement_stat/Archived/agreement_stat_df_", B),
-              csv = FALSE)
-    tictoc::toc()
-    gc()
-    B
-  })
 # EACH create map_df 031: ~27 sec elapsed
 # EACH create agreement_stat_df 031: ~0.05 sec elapsed
 # EACH Export 031: ~0.02 sec elapsed
