@@ -481,6 +481,9 @@ lmer_sum <- files[351:400] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[401:450] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
+lmer_sum <- files[c(37:50, 187:195)] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[c(88:100, 196:200, 238:341)] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[c(138:150, 242:250)] %>% purrr::map(get_mixed_model_sum)
 
 
 # res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD") consequentially
