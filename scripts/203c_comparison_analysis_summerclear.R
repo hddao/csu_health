@@ -350,6 +350,7 @@ save_data(agreement_stat_df,
 create_folder("DATA/Processed/Aim2/Agreement_summerclear", "Bootstrap")
 create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap", "Archived")
 
+
 set.seed(123)
 gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
 # create id_dao_df to merge with sample number
@@ -389,12 +390,22 @@ map_df <- tidyr::crossing(data = gs_all_list[1],
                           n = 21950,
                           B = c(1:500))
 # Create list of boot samples
-boot_data <- map_df %>%
-  # Create boot sample for 3 set of df
-  purrr::pwalk(create_boot_sample)
+boot_data <- map_df[1:170, ] %>% purrr::pwalk(create_boot_sample)
+boot_data <- map_df[171:340, ] %>% purrr::pwalk(create_boot_sample)
+boot_data <- map_df[341:500, ] %>% purrr::pwalk(create_boot_sample)
 # EACH create boot sample: ~43 sec elapsed
 
+
+
+
+
+
+
 # * b. Get lmer() model summary: res, res_diff, res_diff_1 ----------------
+
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap", "lmer")
+create_folder("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer", "Archived")
+
 
 # Create a function to get res_sum, res_diff_sum, and res_diff_1_sum
 get_mixed_model_sum <- function(file_location){
@@ -457,16 +468,16 @@ get_mixed_model_sum <- function(file_location){
   # Export
   tictoc::tic(paste0("Export ", B))
   save_data(res_sum,
-            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/res_sum_", B),
-            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/Archived/res_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/res_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/Archived/res_sum_", B),
             csv = FALSE)
   save_data(res_diff_sum,
-            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/res_diff_sum_", B),
-            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/Archived/res_diff_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/res_diff_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/Archived/res_diff_sum_", B),
             csv = FALSE)
   save_data(res_diff_1_sum,
-            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/res_diff_1_sum_", B),
-            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/Archived/res_diff_1_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/res_diff_1_sum_", B),
+            paste0("DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/Archived/res_diff_1_sum_", B),
             csv = FALSE)
   tictoc::toc()
   gc()
