@@ -60,6 +60,7 @@ export_greenspace_df_long <- function(buffer, raster, id_chr, id_df,
     purrr::map(function(x) {terra::extract(x = raster, y = x,
                                            weights = TRUE) %>%
         dplyr::rename(value = 2) %>%
+        dplyr::mutate(value = tidyr::replace_na(value, 0)) %>%
         dplyr::mutate(weighted_value = value * weight) %>%
         dplyr::group_by(ID) %>%
         dplyr::summarise(weighted_value = sum(weighted_value), weight = sum(weight)) %>%
@@ -78,7 +79,6 @@ export_greenspace_df_long <- function(buffer, raster, id_chr, id_df,
   gc()
   # greenspace_df
 }
-
 
 # Prepare data sets to calculate greenspace ---------------------------------
 
@@ -151,6 +151,7 @@ list_df <- list_df %>%
 # only run buffer from 25m to 1000m
 list_df[1:8, ] %>%
   dplyr::filter(!(distance_chr %in% c("2000", "4000"))) %>%
+  dplyr::filter((distance_chr %in% c("500", "1000"))) %>%
   purrr::pwalk(.f = export_greenspace_df_long)
 # RANGE export greenspace: 0.2 - 5.0 sec elapsed
 
@@ -183,6 +184,7 @@ greenspaceall <- files %>%
   purrr::map(dplyr::bind_rows) %>%
   # Create a column identify buffer type
   purrr::map2(c("geometry", "school"), ~.x %>% dplyr::mutate(type = .y))
+
 
 
 
