@@ -186,7 +186,10 @@ greenspaceall <- files %>%
 
 # Check that there's no missing value
 all(!(is.na(greenspaceall[[1]]$weighted_mean)))
+# TRUE
 all(!(is.na(greenspaceall[[2]]$weighted_mean)))
+# TRUE
+
 
 # Save Data ---------------------------------------------------------------
 
