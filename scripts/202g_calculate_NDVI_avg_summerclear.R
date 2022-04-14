@@ -151,7 +151,6 @@ list_df <- list_df %>%
 # only run buffer from 25m to 1000m
 list_df[1:8, ] %>%
   dplyr::filter(!(distance_chr %in% c("2000", "4000"))) %>%
-  dplyr::filter((distance_chr %in% c("500", "1000"))) %>%
   purrr::pwalk(.f = export_greenspace_df_long)
 # RANGE export greenspace: 0.2 - 5.0 sec elapsed
 
