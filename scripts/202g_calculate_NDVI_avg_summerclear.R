@@ -184,8 +184,9 @@ greenspaceall <- files %>%
   # Create a column identify buffer type
   purrr::map2(c("geometry", "school"), ~.x %>% dplyr::mutate(type = .y))
 
-
-
+# Check that there's no missing value
+all(!(is.na(greenspaceall[[1]]$weighted_mean)))
+all(!(is.na(greenspaceall[[2]]$weighted_mean)))
 
 # Save Data ---------------------------------------------------------------
 
