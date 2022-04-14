@@ -3,7 +3,7 @@ rm(list = ls())
 # Functions ---------------------------------------------------------------
 
 source("scripts/Functions/save_data.R")
-
+source("scripts/Functions/create_folder.R")
 
 
 # Load Data ---------------------------------------------------------------
@@ -125,7 +125,9 @@ save_data(aim2_desc_table_3,
           xlsx = TRUE, csv = FALSE)
 
 # Histogram ---------------------------------------------------------------
-gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement/gs_all_list.rds")
+create_folder("outputs/figures/Aim2/", "summerclear")
+
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
 
 gs_00_df <- gs_all_list[[1]] %>%
   dplyr::mutate(raster = raster %>% dplyr::recode("landsat_26953" = "Landsat 8",
@@ -156,7 +158,7 @@ p<-ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Gre
   ggplot2::ylab("Count")
 
 ggplot2::ggsave(plot = p,
-                "outputs/figures/Aim2/histogram_by_raster.jpg",
+                "outputs/figures/Aim2/summerclear/histogram_by_raster.jpg",
                 device = "jpeg",
                 width = 6.5,
                 height = 4,
@@ -282,7 +284,7 @@ scatterplot[[1]][[2]] <- scatterplot[[1]][[2]] + ggplot2::xlab("Landsat 8") + gg
 scatterplot[[1]][[3]] <- scatterplot[[1]][[3]] + ggplot2::xlab("Landsat 8") + ggplot2::ylab("NLCD")
 
 tictoc::tic("ggsave")
-scatterplot[[1]] %>%
+scatterplot %>%
   purrr::map2(c(1:3),
               ~ggplot2::ggsave(plot = .x,
                               paste0("outputs/figures/Aim2/summerclear/scatterplot_nejm_",
