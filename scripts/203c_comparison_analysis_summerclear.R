@@ -493,10 +493,9 @@ lmer_sum <- files[1:100] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[101:200] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[201:300] %>% purrr::map(get_mixed_model_sum)
 
-lmer_sum <- files[301:350] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[351:400] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[401:450] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[301:370] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[401:470] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[c(371:400, 471:500)] %>% purrr::map(get_mixed_model_sum)
 
 
 
