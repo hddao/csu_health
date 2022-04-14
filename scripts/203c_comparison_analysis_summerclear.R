@@ -700,8 +700,8 @@ lmer3_res <- gs_all_list %>%
                         (1|id_dao) + (1|distance) +
                         (1|id_dao:raster) + (1|id_dao:distance) +
                         (1|distance:raster),
-                      data = df,
-                      control = lme4::lmerControl(optimizer = "bobyqa"))
+                      # control = lme4::lmerControl(optimizer = "bobyqa"),
+                      data = df)
     res_sum <- summary(res)
     tictoc::toc()
     result <- list(res, res_sum)
