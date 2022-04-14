@@ -154,7 +154,8 @@ p<-ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Gre
                  legend.box.just = "left") +
   ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
   # ggplot2::theme(legend.position="bottom") +
-  ggsci::scale_color_nejm() +
+  # ggsci::scale_color_nejm() +
+  ggplot2::scale_color_brewer(palette = "Dark2") +
   ggplot2::ylab("Count")
 
 ggplot2::ggsave(plot = p,
@@ -192,13 +193,17 @@ ggplot2::ggsave(plot = p,
 # Histogram by raster & radius
 
 mu_both <- plyr::ddply(gs_00_df, "gs_br",
-                       dplyr::summarise, grp.mean=mean(`Greenspace measurement`)) %>%
+                       dplyr::summarise, grp.mean=mean(`Greenspace measurement`)) #%>%
   dplyr::mutate(`Buffer radius (m)` = gs_br %>%
                   stringr::str_split(" - ") %>%
                   purrr::map(dplyr::last) %>%
                   as.character() %>%
                   stringr::str_remove("m") %>%
                   as.numeric()) %>%
+  dplyr::mutate(`Greenspace source` = gs_br %>%
+                  stringr::str_split(pattern = " - ") %>%
+                  purrr::map(dplyr::first) %>%
+                  as.character()) %>%
   dplyr::group_split(`Buffer radius (m)`)
 
 map_df <- tibble::tibble(
@@ -212,7 +217,7 @@ hist_list <- map_df %>%
   purrr::pmap(function(mu_both, gs_00_df) {
     ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Greenspace source`)) +
       ggplot2::geom_histogram(fill="white", position="dodge")+
-      ggplot2::geom_vline(data=mu, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
+      ggplot2::geom_vline(data=mu_both, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
                           linetype="dashed") +
       ggplot2::theme_bw() +
       ggplot2::theme(legend.position = c(0.95, 0.95),
@@ -220,7 +225,8 @@ hist_list <- map_df %>%
                      legend.box.just = "left") +
       ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
       # ggplot2::theme(legend.position="bottom") +
-      ggsci::scale_color_nejm() +
+      # ggsci::scale_color_nejm() +
+      ggplot2::scale_color_brewer(palette = "Dark2") +
       ggplot2::ylab("Count") +
       ggplot2::annotate("label", x=0.5, y=7500,
                         hjust = 0,
@@ -272,7 +278,9 @@ scatterplot <- gs_desc_df %>%
                          legend.justification = c("right", "bottom"),
                          legend.box.just = "left") +
           ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
-          ggsci::scale_color_nejm()})
+          # ggsci::scale_color_nejm() +
+          ggplot2::scale_color_brewer(palette = "Dark2")
+        })
     plot_list
   })
 
@@ -284,7 +292,7 @@ scatterplot[[1]][[2]] <- scatterplot[[1]][[2]] + ggplot2::xlab("Landsat 8") + gg
 scatterplot[[1]][[3]] <- scatterplot[[1]][[3]] + ggplot2::xlab("Landsat 8") + ggplot2::ylab("NLCD")
 
 tictoc::tic("ggsave")
-scatterplot %>%
+scatterplot[[1]] %>%
   purrr::map2(c(1:3),
               ~ggplot2::ggsave(plot = .x,
                               paste0("outputs/figures/Aim2/summerclear/scatterplot_nejm_",
@@ -627,6 +635,8 @@ ba_plot <- map_df %>%
                      legend.justification = c("right", "bottom"),
                      legend.box.just = "left") +
       ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+      # ggsci::scale_color_nejm() +
+      ggplot2::scale_color_brewer(palette = "Dark2") +
       ggplot2::xlab(paste0("Average of the greenspace measurements from ", quantile_df$pair[1])) +
       ggplot2::ylab(paste0("Difference in greenspace measurements: ", ylab))
 
