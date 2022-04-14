@@ -158,7 +158,7 @@ gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/g
 gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_pair_list.rds")
 
 
-# # List of model info
+# List of model info
 lmer_info <- tibble::tibble(month = rep(c("summer months"), each = 3),
                             landsat_26953 = rep(c(0,1,1), times = 1),
                             nlcd_26953 = rep(c(1,0,1), times = 1),
