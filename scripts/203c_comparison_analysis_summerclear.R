@@ -192,8 +192,8 @@ lmer_res_diff <- gs_all_pair_list %>%
       dplyr::mutate(d = .[[4]] - .[[5]])
     # run lme4::lmer() for res_diff
     res_diff <- lme4::lmer(d ~ (1|id_dao) + (1|distance),
-                           data = df,
-                           control = lme4::lmerControl(optimizer = "bobyqa"))
+                           # control = lme4::lmerControl(optimizer = "bobyqa"),
+                           data = df)
     res_diff_sum <- summary(res_diff)
     tictoc::toc()
     result <- list(res_diff, res_diff_sum)
@@ -213,8 +213,8 @@ lmer_res_diff_1 <- gs_all_pair_list %>%
       dplyr::mutate(d = .[[4]] - .[[5]])
     # run lme4::lmer() for res_diff_1
     res_diff_1 <- lme4::lmer(d ~ 1 + (1|id_dao),
-                             data = df,
-                             control = lme4::lmerControl(optimizer = "bobyqa"))
+                             # control = lme4::lmerControl(optimizer = "bobyqa"),
+                             data = df)
     res_diff_1_sum <- summary(res_diff_1)
     tictoc::toc()
     result <- list(res_diff_1, res_diff_1_sum)
@@ -486,15 +486,8 @@ lmer_sum <- files[351:400] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[401:450] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
-lmer_sum <- files[c(37:50, 187:195)] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[c(88:100, 196:200, 238:341)] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[c(138:150, 242:250)] %>% purrr::map(get_mixed_model_sum)
-
-lmer_sum <- files[c(423:440)] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[c(441:450, 474:481)] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[c(482:500)] %>% purrr::map(get_mixed_model_sum)
-
-
+lmer_sum <- files[1:250] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[251:500] %>% purrr::map(get_mixed_model_sum)
 
 
 # res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD") consequentially
