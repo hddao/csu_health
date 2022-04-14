@@ -632,13 +632,13 @@ lmer_info <- tibble::tibble(landsat_26953 = c(0,1,1),
   split(seq(nrow(.)))
 
 # Get a df of all lmer model summary
-files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
+files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/",
                                                       pattern = "^res_sum_\\d{3}\\.rds$",
                                                       full.names = TRUE) %>% sort(),
-                           files_res_diff_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
+                           files_res_diff_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/",
                                                            pattern = "^res_diff_sum_\\d{3}\\.rds$",
                                                            full.names = TRUE) %>% sort(),
-                           files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/",
+                           files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/",
                                                              pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
                                                              full.names = TRUE) %>% sort())
 
