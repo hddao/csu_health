@@ -434,9 +434,8 @@ get_mixed_model_sum <- function(file_location){
                           (1|idb) + (1|distance) +
                           (1|idb:raster) + (1|idb:distance) +
                           (1|distance:raster),
-
-                        data = df,
-                        control = lme4::lmerControl(optimizer = "bobyqa"))
+                        # control = lme4::lmerControl(optimizer = "bobyqa"),
+                        data = df)
       res_sum <- summary(res)
       tictoc::toc()
       res_sum
@@ -447,8 +446,8 @@ get_mixed_model_sum <- function(file_location){
       tictoc::tic("lme4::lmer res_diff")
       # run lme4::lmer() for res_diff
       res_diff <- lme4::lmer(d ~ (1|idb) + (1|distance),
-                             data = df,
-                             control = lme4::lmerControl(optimizer = "bobyqa"))
+                             # control = lme4::lmerControl(optimizer = "bobyqa"),
+                             data = df)
       res_diff_sum <- summary(res_diff)
       tictoc::toc()
       res_diff_sum
@@ -459,8 +458,8 @@ get_mixed_model_sum <- function(file_location){
       tictoc::tic("lme4::lmer res_diff_1")
       # run lme4::lmer() for res_diff_1
       res_diff_1 <- lme4::lmer(d ~ (1|idb),
-                               data = df,
-                               control = lme4::lmerControl(optimizer = "bobyqa"))
+                               # control = lme4::lmerControl(optimizer = "bobyqa"),
+                               data = df)
       res_diff_1_sum <- summary(res_diff_1)
       tictoc::toc()
       res_diff_1_sum
@@ -490,19 +489,15 @@ files <- list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/
   sort()
 
 # Run and export mixed model
-lmer_sum <- files[1:50] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[51:100] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[101:150] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[151:200] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[201:250] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[251:300] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[1:100] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[101:200] %>% purrr::map(get_mixed_model_sum)
+lmer_sum <- files[201:300] %>% purrr::map(get_mixed_model_sum)
+
 lmer_sum <- files[301:350] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[351:400] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[401:450] %>% purrr::map(get_mixed_model_sum)
 lmer_sum <- files[451:500] %>% purrr::map(get_mixed_model_sum)
 
-lmer_sum <- files[1:250] %>% purrr::map(get_mixed_model_sum)
-lmer_sum <- files[251:500] %>% purrr::map(get_mixed_model_sum)
 
 
 # res_sum_xxx: 3 model summary for the pairs of c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD") consequentially
