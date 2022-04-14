@@ -148,7 +148,9 @@ gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/g
 
 
 # 1. Linear mixed-model ---------------------------------------------------
-
+# lmerControl
+# https://cran.r-project.org/web/packages/lme4/vignettes/lmerperf.html
+# https://joshua-nugent.github.io/allFit/
 gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_pair_list.rds")
 
 
@@ -169,8 +171,8 @@ lmer_res <- gs_all_pair_list %>%
                         (1|id_dao) + (1|distance) +
                         (1|id_dao:raster) + (1|id_dao:distance) +
                         (1|distance:raster),
-                      data = df,
-                      control = lme4::lmerControl(optimizer = "bobyqa"))
+                      # control = lme4::lmerControl(optimizer = "bobyqa"),
+                      data = df)
     res_sum <- summary(res)
     tictoc::toc()
     result <- list(res, res_sum)
