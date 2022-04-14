@@ -21,6 +21,10 @@ raw_greenspaceall_geometry_nlcd <- readr::read_rds("DATA/Processed/Aim2/Greenspa
 raw_greenspaceall_geometry <- dplyr::bind_rows(raw_greenspaceall_geometry_landsat,
                                                raw_greenspaceall_geometry_modis,
                                                raw_greenspaceall_geometry_nlcd)
+# Check no missing greenspace value
+all(!is.na(raw_greenspaceall_geometry$weighted_mean))
+# TRUE
+
 rm(raw_greenspaceall_geometry_landsat,
    raw_greenspaceall_geometry_modis,
    raw_greenspaceall_geometry_nlcd)
