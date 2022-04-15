@@ -168,16 +168,31 @@ lmer_info <- tibble::tibble(month = rep(c("summer months"), each = 3),
 
 
 #Mixed effects model (1) in the main paper
-lmer_res_1_2 <- gs_all_pair_list %>%
+lmer_res_1 <- gs_all_pair_list %>%
   unlist(recursive = FALSE) %>%
-  magrittr::extract(c(1:2)) %>%
+  magrittr::extract(c(1)) %>%
   purrr::map(function(df){
     tictoc::tic("lme4::lmer")
     res <- lme4::lmer(greenspace ~ raster +
                         (1|id_dao) + (1|distance) +
                         (1|id_dao:raster) + (1|id_dao:distance) +
                         (1|distance:raster),
-                      control = lme4::lmerControl(optimizer = "nloptwrap"),
+                      data = df)
+    res_sum <- summary(res)
+    tictoc::toc()
+    result <- list(res, res_sum)
+  })
+
+lmer_res_2 <- gs_all_pair_list %>%
+  unlist(recursive = FALSE) %>%
+  magrittr::extract(c(2)) %>%
+  purrr::map(function(df){
+    tictoc::tic("lme4::lmer")
+    res <- lme4::lmer(greenspace ~ raster +
+                        (1|id_dao) + (1|distance) +
+                        (1|id_dao:raster) + (1|id_dao:distance) +
+                        (1|distance:raster),
+                      control = lme4::lmerControl(optimizer = "nlminbwrap"),
                       data = df)
     res_sum <- summary(res)
     tictoc::toc()
@@ -200,8 +215,7 @@ lmer_res_3 <- gs_all_pair_list %>%
     result <- list(res, res_sum)
   })
 
-lmer_res <- list(lmer_res_1_2,
-                 lmer_res_3)
+lmer_res <- c(lmer_res_1, lmer_res_2, lmer_res_3)
 
 
 # (mixed model approach--modelling the differences) for calculating LOA
