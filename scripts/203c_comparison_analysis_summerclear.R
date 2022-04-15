@@ -177,6 +177,7 @@ lmer_res_1 <- gs_all_pair_list %>%
                         (1|id_dao) + (1|distance) +
                         (1|id_dao:raster) + (1|id_dao:distance) +
                         (1|distance:raster),
+                      control = lme4::lmerControl(optimizer = "bobyqa"),
                       data = df)
     res_sum <- summary(res)
     tictoc::toc()
