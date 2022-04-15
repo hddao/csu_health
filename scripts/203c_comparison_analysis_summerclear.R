@@ -678,6 +678,14 @@ stat <- files_df[1:170, ] %>% run_agreement_stats()
 stat <- files_df[171:340, ] %>% run_agreement_stats()
 stat <- files_df[341:500, ] %>% run_agreement_stats()
 
+stat <- files_df[1:100, ] %>% run_agreement_stats()
+stat <- files_df[101:200, ] %>% run_agreement_stats()
+stat <- files_df[201:300, ] %>% run_agreement_stats()
+
+stat <- files_df[1:170, ] %>% run_agreement_stats()
+stat <- files_df[171:340, ] %>% run_agreement_stats()
+stat <- files_df[c(371:400, 471:500), ] %>% run_agreement_stats()
+
 # EACH create map_df 031: ~27 sec elapsed
 # EACH create agreement_stat_df 031: ~0.05 sec elapsed
 # EACH Export 031: ~0.02 sec elapsed
