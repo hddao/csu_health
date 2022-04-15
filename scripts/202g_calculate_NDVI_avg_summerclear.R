@@ -82,6 +82,16 @@ export_greenspace_df_long <- function(buffer, raster, id_chr, id_df,
 
 # Prepare data sets to calculate greenspace ---------------------------------
 
+buffer_school_26953 <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_school_26953.rds") %>%
+  purrr::map(terra::vect)
+buffer_geometry_26953 <- readr::read_rds("DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_student_geometry_26953.rds") %>%
+  purrr::map(terra::vect)
+
+distance_buffer <- c(25, 50, 100, 250, 500, 1000, 2000, 4000) %>% as.character()
+
+landsat_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_landsat_26953_summerclear.tif"
+
+
 # Create list of index df for matching with terra::extract
 id_buffer <- list(buffer_school_26953[[1]],
                   buffer_geometry_26953[[1]]) %>%
@@ -98,7 +108,6 @@ n_buffertype <- 2
 n_distance <- 8
 n_raster*n_buffertype*n_distance
 
-landsat_26953 <- "DATA/Processed/Aim2/Greenspace/aim2_prep_buffer_landsat_26953_summerclear.tif"
 list_raster <- c(landsat_26953) %>%
   rep(each = n_distance, time = n_buffertype)
 
