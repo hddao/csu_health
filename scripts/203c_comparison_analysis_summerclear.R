@@ -153,6 +153,7 @@ gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/g
 
 # 1. Linear mixed-model ---------------------------------------------------
 # lmerControl
+# https://rstudio-pubs-static.s3.amazonaws.com/33653_57fc7b8e5d484c909b615d8633c01d51.html
 # https://cran.r-project.org/web/packages/lme4/vignettes/lmerperf.html
 # https://joshua-nugent.github.io/allFit/
 gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_pair_list.rds")
@@ -167,8 +168,9 @@ lmer_info <- tibble::tibble(month = rep(c("summer months"), each = 3),
 
 
 #Mixed effects model (1) in the main paper
-lmer_res <- gs_all_pair_list %>%
+lmer_res_1 <- gs_all_pair_list %>%
   unlist(recursive = FALSE) %>%
+  magrittr::extract(c(1)) %>%
   purrr::map(function(df){
     tictoc::tic("lme4::lmer")
     res <- lme4::lmer(greenspace ~ raster +
@@ -181,6 +183,41 @@ lmer_res <- gs_all_pair_list %>%
     tictoc::toc()
     result <- list(res, res_sum)
   })
+
+lmer_res_2 <- gs_all_pair_list %>%
+  unlist(recursive = FALSE) %>%
+  magrittr::extract(c(2)) %>%
+  purrr::map(function(df){
+    tictoc::tic("lme4::lmer")
+    res <- lme4::lmer(greenspace ~ raster +
+                        (1|id_dao) + (1|distance) +
+                        (1|id_dao:raster) + (1|id_dao:distance) +
+                        (1|distance:raster),
+                      control = lme4::lmerControl(optimizer = "nlminbwrap"),
+                      data = df)
+    res_sum <- summary(res)
+    tictoc::toc()
+    result <- list(res, res_sum)
+  })
+
+lmer_res_3 <- gs_all_pair_list %>%
+  unlist(recursive = FALSE) %>%
+  magrittr::extract(3) %>%
+  purrr::map(function(df){
+    tictoc::tic("lme4::lmer")
+    res <- lme4::lmer(greenspace ~ raster +
+                        (1|id_dao) + (1|distance) +
+                        (1|id_dao:raster) + (1|id_dao:distance) +
+                        (1|distance:raster),
+                      control = lme4::lmerControl(optimizer = "nlminbwrap"),
+                      data = df)
+    res_sum <- summary(res)
+    tictoc::toc()
+    result <- list(res, res_sum)
+  })
+
+lmer_res <- c(lmer_res_1, lmer_res_2, lmer_res_3)
+
 
 # (mixed model approach--modelling the differences) for calculating LOA
 lmer_res_diff <- gs_all_pair_list %>%
@@ -641,6 +678,14 @@ files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim
 stat <- files_df[1:170, ] %>% run_agreement_stats()
 stat <- files_df[171:340, ] %>% run_agreement_stats()
 stat <- files_df[341:500, ] %>% run_agreement_stats()
+
+stat <- files_df[1:100, ] %>% run_agreement_stats()
+stat <- files_df[101:200, ] %>% run_agreement_stats()
+stat <- files_df[201:300, ] %>% run_agreement_stats()
+
+stat <- files_df[1:170, ] %>% run_agreement_stats()
+stat <- files_df[171:340, ] %>% run_agreement_stats()
+stat <- files_df[c(371:400, 471:500), ] %>% run_agreement_stats()
 
 # EACH create map_df 031: ~27 sec elapsed
 # EACH create agreement_stat_df 031: ~0.05 sec elapsed
