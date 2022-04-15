@@ -30,7 +30,6 @@ save_data(aim2_desc,
 
 # Stats for txt
 aim2_desc_text <- gs_all_list[[1]] %>%
-  dplyr::filter(month == "All months") %>%
   dplyr::group_by(raster) %>%
   dplyr::summarise(gs_mean = mean(greenspace), gs_sd = sd(greenspace))
 save_data(aim2_desc_text,
@@ -193,7 +192,7 @@ ggplot2::ggsave(plot = p,
 # Histogram by raster & radius
 
 mu_both <- plyr::ddply(gs_00_df, "gs_br",
-                       dplyr::summarise, grp.mean=mean(`Greenspace measurement`)) #%>%
+                       dplyr::summarise, grp.mean=mean(`Greenspace measurement`)) %>%
   dplyr::mutate(`Buffer radius (m)` = gs_br %>%
                   stringr::str_split(" - ") %>%
                   purrr::map(dplyr::last) %>%
@@ -307,102 +306,102 @@ tictoc::toc()
 
 # Variance Components -----------------------------------------------------
 
-lmer3_res <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/lmer3_res.rds")
-
-# Create a function to get agreement stats from lmer model summary
-create_agreement_stats <- function(res_sum,
-                                   p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
-  # beta coefficient (Estimate) for raster
-  beta2.est <- coef(res_sum)[2]
-  # varcor for id_dao
-  sigma2.alpha.est <- res_sum$varcor$id_dao %>% attr("stddev") %>% as.numeric()
-  # varcor for distance
-  sigma2.gamma.est <- res_sum$varcor$distance %>% attr("stddev") %>% as.numeric()
-  # varcor for id_dao:distance
-  sigma2.alpha.gamma.est <- res_sum$varcor$`id_dao:distance` %>% attr("stddev") %>% as.numeric()
-  # varcor for id_dao:raster
-  sigma2.alpha.beta.est <- res_sum$varcor$`id_dao:raster` %>% attr("stddev") %>% as.numeric()
-  # varcor for distance:raster
-  sigma2.beta.gamma.est <- res_sum$varcor$`distance:raster` %>% attr("stddev") %>% as.numeric()
-  # varcor for error (residual)
-  sigma2.epsilon.est <- as.numeric(res_sum$sigma)^2
-  # squared beta coefficient (Estimate) for raster
-  phi2.beta.est <- beta2.est^2
-
-  #Concordance correlation coefficient
-  num_ccc <- sigma2.alpha.est + sigma2.gamma.est + sigma2.alpha.gamma.est
-  den_ccc <- sigma2.alpha.est + phi2.beta.est + sigma2.gamma.est +
-    sigma2.alpha.gamma.est + sigma2.alpha.beta.est +
-    sigma2.beta.gamma.est + sigma2.epsilon.est
-  CCC <- num_ccc/den_ccc
-  #Mean squared deviation
-  MSD <- (beta2.est^2) + 2*(sigma2.alpha.beta.est+sigma2.beta.gamma.est+sigma2.epsilon.est)
-  #Total deviation index
-  # p <- c(0.90, 0.95)
-  TDI <- (qnorm((1+p)/2)*sqrt(MSD)) %>% list()
-  #Coverage probability
-  # delta <- c(0.05, 0.1)
-  CP <- (1-2*(1-pnorm(delta/sqrt(MSD)))) %>% list()
-  #Coefficient of individual agreement
-  CIA <- 2*sigma2.epsilon.est/MSD
-
-    # Exported df
-  var_stat_df <- tibble::tibble(beta2.est,
-                                sigma2.alpha.est,
-                                sigma2.gamma.est,
-                                sigma2.alpha.gamma.est,
-                                sigma2.alpha.beta.est,
-                                sigma2.beta.gamma.est,
-                                sigma2.epsilon.est,
-                                phi2.beta.est,
-                                CCC, MSD, TDI, CP, CIA) %>%
-    dplyr::rename_all(tolower) %>%
-    # change cp and tdi from list to numeric
-    dplyr::mutate(cp_05 = cp %>% purrr::map(dplyr::first) %>% as.numeric(),
-                  cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
-                  tdi_05 = tdi %>% purrr::map(dplyr::first) %>% as.numeric(),
-                  tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric())
-}
-
-# Create a reference table for agreement stats name
-agreement_full_desc_df <- tibble::tibble(
-  rowname = c("meanb",  "lcl", "ucl", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc",
-              "sigma2.alpha.est", "sigma2.gamma.est", "sigma2.alpha.gamma.est",
-              "sigma2.alpha.beta.est", "sigma2.beta.gamma.est", "sigma2.epsilon.est",
-              "phi2.beta.est"),
-  `Agreement Statistics` = c("Limits of agreement (LOA)",
-                             "Lower limit of agreement (LOA + 1.96SD)",
-                             "Upper limit of agreement (LOA - 1.96SD)",
-                             "Mean squared deviation (MSD)",
-                             "Coverage Probability at greenspace of 0.05 (CP 0.05)",
-                             "Coverage Probability at greenspace of 0.10 (CP 0.10)",
-                             "Total deviation index at 90% probability (TDI 0.90)",
-                             "Total deviation index at 95% probability (TDI 0.95)",
-                             "Concordance Correlation Coefficient (CCC)",
-                             "Variance from subject",
-                             "Variance from buffer radius",
-                             "Variance from subject & buffer radius interaction",
-                             "Variance from subject & raster interaction",
-                             "Variance from buffer radius & raster interaction",
-                             "Variance from error term",
-                             "Variance from raster"))
-
-agreement_stat_3_df <- lmer3_res[[1]][[2]] %>%
-  create_agreement_stats() %>%
-  # select only needed stats
-  dplyr::select(msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
-                sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
-                sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
-                phi2.beta.est) %>%
-  t() %>%
-  tibble::as_tibble(rownames = NA) %>%
-  tibble::rownames_to_column() %>%
-  dplyr::left_join(agreement_full_desc_df, by = "rowname")
-
-
-save_data(agreement_stat_3_df,
-          "DATA/Processed/Aim2/Agreement_summerclear/agreement_stat_3_df",
-          "DATA/Processed/Aim2/Agreement_summerclear/Archived/agreement_stat_3_df")
+# lmer3_res <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/lmer3_res.rds")
+#
+# # Create a function to get agreement stats from lmer model summary
+# create_agreement_stats <- function(res_sum,
+#                                    p = c(0.9, 0.95), delta = c(0.05, 0.1), alpha = 0.05) {
+#   # beta coefficient (Estimate) for raster
+#   beta2.est <- coef(res_sum)[2]
+#   # varcor for id_dao
+#   sigma2.alpha.est <- res_sum$varcor$id_dao %>% attr("stddev") %>% as.numeric()
+#   # varcor for distance
+#   sigma2.gamma.est <- res_sum$varcor$distance %>% attr("stddev") %>% as.numeric()
+#   # varcor for id_dao:distance
+#   sigma2.alpha.gamma.est <- res_sum$varcor$`id_dao:distance` %>% attr("stddev") %>% as.numeric()
+#   # varcor for id_dao:raster
+#   sigma2.alpha.beta.est <- res_sum$varcor$`id_dao:raster` %>% attr("stddev") %>% as.numeric()
+#   # varcor for distance:raster
+#   sigma2.beta.gamma.est <- res_sum$varcor$`distance:raster` %>% attr("stddev") %>% as.numeric()
+#   # varcor for error (residual)
+#   sigma2.epsilon.est <- as.numeric(res_sum$sigma)^2
+#   # squared beta coefficient (Estimate) for raster
+#   phi2.beta.est <- beta2.est^2
+#
+#   #Concordance correlation coefficient
+#   num_ccc <- sigma2.alpha.est + sigma2.gamma.est + sigma2.alpha.gamma.est
+#   den_ccc <- sigma2.alpha.est + phi2.beta.est + sigma2.gamma.est +
+#     sigma2.alpha.gamma.est + sigma2.alpha.beta.est +
+#     sigma2.beta.gamma.est + sigma2.epsilon.est
+#   CCC <- num_ccc/den_ccc
+#   #Mean squared deviation
+#   MSD <- (beta2.est^2) + 2*(sigma2.alpha.beta.est+sigma2.beta.gamma.est+sigma2.epsilon.est)
+#   #Total deviation index
+#   # p <- c(0.90, 0.95)
+#   TDI <- (qnorm((1+p)/2)*sqrt(MSD)) %>% list()
+#   #Coverage probability
+#   # delta <- c(0.05, 0.1)
+#   CP <- (1-2*(1-pnorm(delta/sqrt(MSD)))) %>% list()
+#   #Coefficient of individual agreement
+#   CIA <- 2*sigma2.epsilon.est/MSD
+#
+#     # Exported df
+#   var_stat_df <- tibble::tibble(beta2.est,
+#                                 sigma2.alpha.est,
+#                                 sigma2.gamma.est,
+#                                 sigma2.alpha.gamma.est,
+#                                 sigma2.alpha.beta.est,
+#                                 sigma2.beta.gamma.est,
+#                                 sigma2.epsilon.est,
+#                                 phi2.beta.est,
+#                                 CCC, MSD, TDI, CP, CIA) %>%
+#     dplyr::rename_all(tolower) %>%
+#     # change cp and tdi from list to numeric
+#     dplyr::mutate(cp_05 = cp %>% purrr::map(dplyr::first) %>% as.numeric(),
+#                   cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
+#                   tdi_05 = tdi %>% purrr::map(dplyr::first) %>% as.numeric(),
+#                   tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric())
+# }
+#
+# # Create a reference table for agreement stats name
+# agreement_full_desc_df <- tibble::tibble(
+#   rowname = c("meanb",  "lcl", "ucl", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc",
+#               "sigma2.alpha.est", "sigma2.gamma.est", "sigma2.alpha.gamma.est",
+#               "sigma2.alpha.beta.est", "sigma2.beta.gamma.est", "sigma2.epsilon.est",
+#               "phi2.beta.est"),
+#   `Agreement Statistics` = c("Limits of agreement (LOA)",
+#                              "Lower limit of agreement (LOA + 1.96SD)",
+#                              "Upper limit of agreement (LOA - 1.96SD)",
+#                              "Mean squared deviation (MSD)",
+#                              "Coverage Probability at greenspace of 0.05 (CP 0.05)",
+#                              "Coverage Probability at greenspace of 0.10 (CP 0.10)",
+#                              "Total deviation index at 90% probability (TDI 0.90)",
+#                              "Total deviation index at 95% probability (TDI 0.95)",
+#                              "Concordance Correlation Coefficient (CCC)",
+#                              "Variance from subject",
+#                              "Variance from buffer radius",
+#                              "Variance from subject & buffer radius interaction",
+#                              "Variance from subject & raster interaction",
+#                              "Variance from buffer radius & raster interaction",
+#                              "Variance from error term",
+#                              "Variance from raster"))
+#
+# agreement_stat_3_df <- lmer3_res[[1]][[2]] %>%
+#   create_agreement_stats() %>%
+#   # select only needed stats
+#   dplyr::select(msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
+#                 sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
+#                 sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
+#                 phi2.beta.est) %>%
+#   t() %>%
+#   tibble::as_tibble(rownames = NA) %>%
+#   tibble::rownames_to_column() %>%
+#   dplyr::left_join(agreement_full_desc_df, by = "rowname")
+#
+#
+# save_data(agreement_stat_3_df,
+#           "DATA/Processed/Aim2/Agreement_summerclear/agreement_stat_3_df",
+#           "DATA/Processed/Aim2/Agreement_summerclear/Archived/agreement_stat_3_df")
 
 
 
