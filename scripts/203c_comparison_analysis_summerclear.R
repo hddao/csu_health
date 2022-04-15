@@ -727,24 +727,24 @@ save_data(quantile_list,
 
 # 4. Agreement, 3 raster --------------------------------------------------
 
-gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
-
-#Mixed effects model (1) in the main paper
-lmer3_res <- gs_all_list %>%
-  purrr::map(function(df){
-    tictoc::tic("lme4::lmer() for 3 raster")
-    res <- lme4::lmer(greenspace ~ raster +
-                        (1|id_dao) + (1|distance) +
-                        (1|id_dao:raster) + (1|id_dao:distance) +
-                        (1|distance:raster),
-                      control = lme4::lmerControl(optimizer = "nlminbwrap"),
-                      data = df)
-    res_sum <- summary(res)
-    tictoc::toc()
-    result <- list(res, res_sum)
-  })
-
-save_data(lmer3_res,
-          "DATA/Processed/Aim2/Agreement_summerclear/lmer3_res",
-          "DATA/Processed/Aim2/Agreement_summerclear/Archived/lmer3_res",
-          csv = FALSE)
+# gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
+#
+# #Mixed effects model (1) in the main paper
+# lmer3_res <- gs_all_list %>%
+#   purrr::map(function(df){
+#     tictoc::tic("lme4::lmer() for 3 raster")
+#     res <- lme4::lmer(greenspace ~ raster +
+#                         (1|id_dao) + (1|distance) +
+#                         (1|id_dao:raster) + (1|id_dao:distance) +
+#                         (1|distance:raster),
+#                       control = lme4::lmerControl(optimizer = "bobyqa"),
+#                       data = df)
+#     res_sum <- summary(res)
+#     tictoc::toc()
+#     result <- list(res, res_sum)
+#   })
+#
+# save_data(lmer3_res,
+#           "DATA/Processed/Aim2/Agreement_summerclear/lmer3_res",
+#           "DATA/Processed/Aim2/Agreement_summerclear/Archived/lmer3_res",
+#           csv = FALSE)
