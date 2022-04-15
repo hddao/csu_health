@@ -177,7 +177,6 @@ lmer_res_1 <- gs_all_pair_list %>%
                         (1|id_dao) + (1|distance) +
                         (1|id_dao:raster) + (1|id_dao:distance) +
                         (1|distance:raster),
-                      control = lme4::lmerControl(optimizer = "bobyqa"),
                       data = df)
     res_sum <- summary(res)
     tictoc::toc()
@@ -672,7 +671,6 @@ files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim
                            files_res_diff_1_sum = list.files(path = "DATA/Processed/Aim2/Agreement_summerclear/Bootstrap/lmer/",
                                                              pattern = "^res_diff_1_sum_\\d{3}\\.rds$",
                                                              full.names = TRUE) %>% sort())
-
 
 # Calculate agreement stats and export
 stat <- files_df[1:150, ] %>% run_agreement_stats()
