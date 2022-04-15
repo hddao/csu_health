@@ -674,17 +674,11 @@ files_df <- tibble::tibble(files_res_sum = list.files(path = "DATA/Processed/Aim
 
 
 # Calculate agreement stats and export
-stat <- files_df[1:170, ] %>% run_agreement_stats()
-stat <- files_df[171:340, ] %>% run_agreement_stats()
-stat <- files_df[341:500, ] %>% run_agreement_stats()
+stat <- files_df[1:150, ] %>% run_agreement_stats()
+stat <- files_df[151:300, ] %>% run_agreement_stats()
 
-stat <- files_df[1:100, ] %>% run_agreement_stats()
-stat <- files_df[101:200, ] %>% run_agreement_stats()
-stat <- files_df[201:300, ] %>% run_agreement_stats()
-
-stat <- files_df[1:170, ] %>% run_agreement_stats()
-stat <- files_df[171:340, ] %>% run_agreement_stats()
-stat <- files_df[c(371:400, 471:500), ] %>% run_agreement_stats()
+stat <- files_df[301:400, ] %>% run_agreement_stats()
+stat <- files_df[401:500, ] %>% run_agreement_stats()
 
 # EACH create map_df 031: ~27 sec elapsed
 # EACH create agreement_stat_df 031: ~0.05 sec elapsed
@@ -743,7 +737,7 @@ lmer3_res <- gs_all_list %>%
                         (1|id_dao) + (1|distance) +
                         (1|id_dao:raster) + (1|id_dao:distance) +
                         (1|distance:raster),
-                      # control = lme4::lmerControl(optimizer = "bobyqa"),
+                      control = lme4::lmerControl(optimizer = "nlminbwrap"),
                       data = df)
     res_sum <- summary(res)
     tictoc::toc()
