@@ -553,7 +553,8 @@ plot_bymonth <- agreement_by_month %>%
                    ggplot2::geom_line() +
                    ggplot2::ggtitle(df$pair[1]) +
                    ggplot2::theme_bw() +
-                   ggsci::scale_color_nejm() +
+                   # ggsci::scale_color_nejm() +
+                   ggplot2::scale_color_brewer(palette = "Dark2") +
                    ggplot2::theme(legend.position = "bottom"))
     # Rescale
     plot_list[[1]] <- plot_list[[1]] + ggplot2::ylim(0, 0.5)
