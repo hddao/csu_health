@@ -6,7 +6,32 @@ source("scripts/Functions/save_data.R")
 source("scripts/Functions/create_folder.R")
 
 
+# Resources ---------------------------------------------------------------
+# https://www.datanovia.com/en/blog/top-r-color-palettes-to-know-for-great-data-visualization/
+RColorBrewer::display.brewer.all(colorblindFriendly = TRUE)
+# Hexadecimal color specification
+RColorBrewer::brewer.pal(n = 8, name = "Dark2") %>% scales::show_col()
+
+# https://ggplot2-book.org/scale-colour.html
+
+
 # Load Data ---------------------------------------------------------------
+
+
+# Check that all radii and rasters have gs measurements -------------------
+gs_all_df <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")[[1]]
+
+# All gs has some values
+all(!is.na(gs_all_df$greenspace))
+# TRUE
+
+# Number of values by raster
+gs_all_df %>% dplyr::group_by(raster) %>% dplyr::summarise(n = dplyr::n())
+# each has the same number of n
+
+# Number of values by buffer radii
+gs_all_df %>% dplyr::group_by(distance) %>% dplyr::summarise(n = dplyr::n())
+# each has the same number of n
 
 
 
@@ -62,7 +87,7 @@ aim2_desc_table <- aim2_desc %>%
                                stringr::str_sub(-4, -1) %>%
                                as.numeric() %>%
                                paste0("m")
-                               ) %>%
+               ) %>%
                dplyr::select(Variable, `Buffer radius (m)`, n,
                              `Mean+_SD`, Median, `Q1-Q3`, `Median (IQR)`, `Min-Max`) %>%
                tidyr::pivot_longer(cols = `Buffer radius (m)`:`Min-Max`,
@@ -71,9 +96,9 @@ aim2_desc_table <- aim2_desc %>%
                dplyr::mutate(stats = ifelse(stats == "Buffer radius (m)", value, paste0("  ", stats)),
                              value = ifelse(stats == value, "", value)) %>%
                dplyr::select(-Variable)
-               ) %>%
+  ) %>%
   purrr::map2(c("Landsat 8 (n=21,950)", "MODIS (n=21,950)", "NLCD (n=21,950)"),
-                ~.x %>% dplyr::rename({{.y}} := value)) %>%
+              ~.x %>% dplyr::rename({{.y}} := value)) %>%
   dplyr::bind_cols() %>%
   dplyr::select(-c(3,5)) %>%
   dplyr::rename(`Greenspace buffer radii` = `stats...1`) %>%
@@ -109,6 +134,10 @@ aim2_desc_table_3 <- aim2_desc %>%
   dplyr::arrange(Variable, raster) %>%
   dplyr::select(`Buffer radius (m)`, raster, n, Mean, SD, Median, Q1, Q3, Minimum, Maximum) %>%
   dplyr::mutate(`Buffer radius (m)` = ifelse(raster %in% c("MODIS", "NLCD"), "", `Buffer radius (m)`))
+
+aim2_desc_table_3 <- aim2_desc_table_3 %>%
+  dplyr::mutate_at(tidyselect::vars_select(names(aim2_desc_table_3), (Mean:Maximum)), ~as.numeric(.) %>% sprintf("%.3f", .))
+
 
 save_data(aim2_desc_table_1,
           "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_1",
@@ -215,7 +244,7 @@ map_df <- tibble::tibble(
 hist_list <- map_df %>%
   purrr::pmap(function(mu_both, gs_00_df) {
     ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, color=`Greenspace source`)) +
-      ggplot2::geom_histogram(fill="white", position="dodge")+
+      ggplot2::geom_histogram(fill="white", position="dodge", binwidth = 0.01)+
       ggplot2::geom_vline(data=mu_both, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
                           linetype="dashed") +
       ggplot2::theme_bw() +
@@ -227,11 +256,11 @@ hist_list <- map_df %>%
       # ggsci::scale_color_nejm() +
       ggplot2::scale_color_brewer(palette = "Dark2") +
       ggplot2::ylab("Count") +
-      ggplot2::annotate("label", x=0.5, y=7500,
+      ggplot2::annotate("label", x=0.5, y=9500,
                         hjust = 0,
                         label= paste0(gs_00_df$`Buffer radius (m)`[1], "m radius")) +
-      ggplot2::scale_y_continuous(breaks = seq(0, 12000, by = 2000),
-                                  limits = c(0, 11000)) +
+      ggplot2::scale_y_continuous(breaks = seq(0, 14000, by = 2000),
+                                  limits = c(0, 14000)) +
       ggplot2::scale_x_continuous(breaks = seq(0, 0.7, by = 0.1),
                                   limits = c(0, 0.7))
   })
@@ -241,6 +270,108 @@ p <- gridExtra::arrangeGrob(hist_list[[1]], hist_list[[2]], hist_list[[3]],
                             nrow=2, ncol=3)
 ggplot2::ggsave(plot = p,
                 "outputs/figures/Aim2/summerclear/histogram_by_radius_raster.jpg",
+                device = "jpeg",
+                width = 15,
+                height = 10,
+                units = "in")
+
+
+
+# Plot area ---------------------------------------------------------------
+
+gs_all_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_list.rds")
+
+gs_00_df <- gs_all_list[[1]] %>%
+  dplyr::mutate(raster = raster %>% dplyr::recode("landsat_26953" = "Landsat 8",
+                                                  "nlcd_26953" = "NLCD",
+                                                  "modis_26953" = "MODIS")) %>%
+  dplyr::rename(`Greenspace measurement` = greenspace,
+                `Greenspace source` = raster,
+                `Buffer radius (m)` = distance) %>%
+  dplyr::mutate(`Buffer radius (m)` = `Buffer radius (m)` %>%
+                  as.character()) %>%
+  dplyr::mutate(gs_br = paste0(`Greenspace source`, " - ", `Buffer radius (m)`, "m"))
+
+mu <- plyr::ddply(gs_00_df, "`Greenspace source`",
+                  dplyr::summarise, grp.mean=mean(`Greenspace measurement`))
+
+
+# Plot area by raster
+p <- ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, fill=`Greenspace source`)) +
+  ggplot2::geom_area(stat ="bin", alpha=0.9, binwidth = 0.01) +
+  ggplot2::geom_vline(data=mu, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
+                    linetype="dashed") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = c(0.95, 0.95),
+                 legend.justification = c("right", "top"),
+                 legend.box.just = "left") +
+  ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+  # ggplot2::theme(legend.position="bottom") +
+  # ggsci::scale_color_nejm() +
+  ggplot2::scale_fill_brewer(palette = "Dark2") +
+  ggplot2::ylab("Count")
+p
+
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/summerclear/area_by_raster.jpg",
+                device = "jpeg",
+                width = 6.5,
+                height = 4,
+                units = "in")
+
+
+# Plot area by raster & radius
+
+mu_both <- plyr::ddply(gs_00_df, "gs_br",
+                       dplyr::summarise, grp.mean=mean(`Greenspace measurement`)) %>%
+  dplyr::mutate(`Buffer radius (m)` = gs_br %>%
+                  stringr::str_split(" - ") %>%
+                  purrr::map(dplyr::last) %>%
+                  as.character() %>%
+                  stringr::str_remove("m") %>%
+                  as.numeric()) %>%
+  dplyr::mutate(`Greenspace source` = gs_br %>%
+                  stringr::str_split(pattern = " - ") %>%
+                  purrr::map(dplyr::first) %>%
+                  as.character()) %>%
+  dplyr::group_split(`Buffer radius (m)`)
+
+map_df <- tibble::tibble(
+  mu_both,
+  gs_00_df = gs_00_df %>%
+    dplyr::mutate(`Buffer radius (m)` = `Buffer radius (m)` %>% as.numeric()) %>%
+    dplyr::group_split(`Buffer radius (m)`))
+
+
+area_list <- map_df %>%
+  purrr::pmap(function(mu_both, gs_00_df) {
+    ggplot2::ggplot(gs_00_df, ggplot2::aes(x=`Greenspace measurement`, fill=`Greenspace source`)) +
+      ggplot2::geom_area(stat ="bin", alpha=0.9, binwidth = 0.01) +
+      ggplot2::geom_vline(data=mu_both, ggplot2::aes(xintercept=grp.mean, color=`Greenspace source`),
+                          linetype="dashed") +
+      ggplot2::theme_bw() +
+      ggplot2::theme(legend.position = c(0.95, 0.95),
+                     legend.justification = c("right", "top"),
+                     legend.box.just = "left") +
+      ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
+      # ggplot2::theme(legend.position="bottom") +
+      # ggsci::scale_color_nejm() +
+      ggplot2::scale_fill_brewer(palette = "Dark2") +
+      ggplot2::ylab("Count") +
+      ggplot2::annotate("label", x=0.5, y=9500,
+                        hjust = 0,
+                        label= paste0(gs_00_df$`Buffer radius (m)`[1], "m radius")) +
+      ggplot2::scale_y_continuous(breaks = seq(0, 14000, by = 2000),
+                                  limits = c(0, 14000)) +
+      ggplot2::scale_x_continuous(breaks = seq(0, 0.7, by = 0.1),
+                                  limits = c(0, 0.7))
+  })
+
+p <- gridExtra::arrangeGrob(area_list[[1]], area_list[[2]], area_list[[3]],
+                            area_list[[4]], area_list[[5]], area_list[[6]],
+                            nrow=2, ncol=3)
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/summerclear/area_by_radius_raster.jpg",
                 device = "jpeg",
                 width = 15,
                 height = 10,
@@ -279,7 +410,7 @@ scatterplot <- gs_desc_df %>%
           ggplot2::theme(legend.background = ggplot2::element_rect(fill="gray90")) +
           # ggsci::scale_color_nejm() +
           ggplot2::scale_color_brewer(palette = "Dark2")
-        })
+      })
     plot_list
   })
 
@@ -294,13 +425,13 @@ tictoc::tic("ggsave")
 scatterplot[[1]] %>%
   purrr::map2(c(1:3),
               ~ggplot2::ggsave(plot = .x,
-                              paste0("outputs/figures/Aim2/summerclear/scatterplot_nejm_",
-                                     .y,
-                                     ".jpg"),
-                              device = "jpeg",
-                              width = 7,
-                              height = 7,
-                              units = "in"))
+                               paste0("outputs/figures/Aim2/summerclear/scatterplot_nejm_",
+                                      .y,
+                                      ".jpg"),
+                               device = "jpeg",
+                               width = 7,
+                               height = 7,
+                               units = "in"))
 tictoc::toc()
 
 
@@ -466,11 +597,11 @@ quantile_list[[2]] <- quantile_list[[2]] %>%
 quantile_df <- quantile_list %>%
   # select only needed stats
   purrr::map(~dplyr::select(.x, c(meanb, lcl, ucl,
-                msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
-                sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
-                sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
-                phi2.beta.est,
-                pair)) %>%
+                                  msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
+                                  sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
+                                  sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
+                                  phi2.beta.est,
+                                  pair)) %>%
                t() %>% tibble::as_tibble(rownames = NA) %>%
                tibble::rownames_to_column() %>%
                dplyr::mutate(ci = ifelse(
@@ -479,9 +610,9 @@ quantile_df <- quantile_list %>%
                  stringr::str_c("(", sprintf("%.4f", as.numeric(V1)),
                                 " \u2013 ", sprintf("%.4f", as.numeric(V2)), ")"))) %>%
                dplyr::select(-c(V1, V2))
-             ) %>%
+  ) %>%
   purrr::map2(c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"),
-             ~.x %>% dplyr::rename({{.y}} := ci)) %>%
+              ~.x %>% dplyr::rename({{.y}} := ci)) %>%
   purrr::reduce(dplyr::full_join, by = "rowname")
 
 agreement_table <- agreement_stat_df %>%
@@ -629,7 +760,7 @@ ba_plot <- map_df %>%
                                        y = d,
                                        colour = `Radius (m)`),
                           shape = 4, size = 0.4,
-                          ) +
+      ) +
       ggplot2::theme(legend.position = c(0.95, 0.05),
                      legend.justification = c("right", "bottom"),
                      legend.box.just = "left") +
