@@ -111,7 +111,7 @@ aim2_desc_table_1 <- aim2_desc_table %>%
 aim2_desc_table_2 <- aim2_desc_table %>%
   dplyr::filter(!(`Greenspace buffer radii` %in% c("  Median", "  Q1-Q3", "  n")))
 
-aim2_desc_table_3 <- aim2_desc %>%
+aim2_desc_table_34 <- aim2_desc %>%
   dplyr::select(-id_dao) %>%
   dplyr::group_split(raster) %>%
   purrr::map(vtable::st, out = "csv", add.median = TRUE) %>%
@@ -132,12 +132,17 @@ aim2_desc_table_3 <- aim2_desc %>%
               ~.x %>% dplyr::mutate(raster = .y)) %>%
   dplyr::bind_rows() %>%
   dplyr::arrange(Variable, raster) %>%
-  dplyr::select(`Buffer radius (m)`, raster, n, Mean, SD, Median, Q1, Q3, Minimum, Maximum) %>%
-  dplyr::mutate(`Buffer radius (m)` = ifelse(raster %in% c("MODIS", "NLCD"), "", `Buffer radius (m)`))
+  dplyr::mutate_at(tidyselect::vars_select(names(aim2_desc_table_3), (Mean:Maximum)), ~as.numeric(.) %>% sprintf("%.3f", .)) %>%
+  dplyr::rename(`Greenspace source` = raster)
 
-aim2_desc_table_3 <- aim2_desc_table_3 %>%
-  dplyr::mutate_at(tidyselect::vars_select(names(aim2_desc_table_3), (Mean:Maximum)), ~as.numeric(.) %>% sprintf("%.3f", .))
+aim2_desc_table_3 <- aim2_desc_table_34 %>%
+  dplyr::select(`Buffer radius (m)`, `Greenspace source`, Mean, SD, Median, Q1, Q3, Minimum, Maximum) %>%
+  dplyr::mutate(`Buffer radius (m)` = ifelse(`Greenspace source` %in% c("MODIS", "NLCD"), "", `Buffer radius (m)`))
 
+aim2_desc_table_4 <- aim2_desc_table_34 %>%
+  dplyr::arrange(`Greenspace source`, Variable) %>%
+  dplyr::select(`Greenspace source`, `Buffer radius (m)`, Mean, SD, Median, Q1, Q3, Minimum, Maximum) %>%
+  dplyr::mutate(`Greenspace source` = ifelse(`Buffer radius (m)` %in% c("50m", "100m", "250m", "500m", "1000m"), "", `Greenspace source`))
 
 save_data(aim2_desc_table_1,
           "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_1",
@@ -150,6 +155,10 @@ save_data(aim2_desc_table_2,
 save_data(aim2_desc_table_3,
           "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_3",
           "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc_table_3",
+          xlsx = TRUE, csv = FALSE)
+save_data(aim2_desc_table_4,
+          "DATA/Processed/Aim2/Agreement_summerclear/aim2_desc_table_4",
+          "DATA/Processed/Aim2/Agreement_summerclear/Archived/aim2_desc_table_4",
           xlsx = TRUE, csv = FALSE)
 
 # Histogram ---------------------------------------------------------------
@@ -369,12 +378,12 @@ area_list <- map_df %>%
 
 p <- gridExtra::arrangeGrob(area_list[[1]], area_list[[2]], area_list[[3]],
                             area_list[[4]], area_list[[5]], area_list[[6]],
-                            nrow=2, ncol=3)
+                            nrow=3, ncol=2)
 ggplot2::ggsave(plot = p,
                 "outputs/figures/Aim2/summerclear/area_by_radius_raster.jpg",
                 device = "jpeg",
-                width = 15,
-                height = 10,
+                width = 10,
+                height = 15,
                 units = "in")
 
 
@@ -399,8 +408,8 @@ scatterplot <- gs_desc_df %>%
                                            y = get(names(df)[5]),
                                            colour = `Radius (m)`),
                               shape = 4, size = 0.8) +
-          ggplot2::xlim(0, 0.6) +
-          ggplot2::ylim(0, 0.6) +
+          ggplot2::xlim(0, 0.7) +
+          ggplot2::ylim(0, 0.7) +
           ggplot2::xlab(names(df)[4]) +
           ggplot2::ylab(names(df)[5]) +
           ggplot2::theme_bw() +
@@ -419,7 +428,10 @@ scatterplot[[1]][[1]] <- scatterplot[[1]][[1]] + ggplot2::xlab("MODIS") + ggplot
                  legend.justification = c("left", "top"),
                  legend.box.just = "left")
 scatterplot[[1]][[2]] <- scatterplot[[1]][[2]] + ggplot2::xlab("Landsat 8") + ggplot2::ylab("MODIS")
-scatterplot[[1]][[3]] <- scatterplot[[1]][[3]] + ggplot2::xlab("Landsat 8") + ggplot2::ylab("NLCD")
+scatterplot[[1]][[3]] <- scatterplot[[1]][[3]] + ggplot2::xlab("Landsat 8") + ggplot2::ylab("NLCD") +
+  ggplot2::theme(legend.position = c(0.05, 0.95),
+                 legend.justification = c("left", "top"),
+                 legend.box.just = "left")
 
 tictoc::tic("ggsave")
 scatterplot[[1]] %>%
@@ -433,6 +445,18 @@ scatterplot[[1]] %>%
                                height = 7,
                                units = "in"))
 tictoc::toc()
+
+p <- gridExtra::arrangeGrob(scatterplot[[1]][[1]], scatterplot[[1]][[2]], scatterplot[[1]][[3]],
+                            nrow=2, ncol=2)
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/summerclear/scatterplots.jpg",
+                device = "jpeg",
+                width = 9,
+                height = 9,
+                units = "in")
+
+
+
 
 
 # Variance Components -----------------------------------------------------
@@ -565,10 +589,10 @@ agreement_full_desc_df <- tibble::tibble(
                              "Variance from subject",
                              "Variance from buffer radius",
                              "Variance from subject & buffer radius interaction",
-                             "Variance from subject & raster interaction",
-                             "Variance from buffer radius & raster interaction",
+                             "Variance from subject & greenspace source interaction",
+                             "Variance from buffer radius & greenspace source interaction",
                              "Variance from error term",
-                             "Variance from raster"))
+                             "Variance from greenspace source"))
 
 agreement_stat_df <- agreement_stat_df %>%
   dplyr::rename_all(tolower) %>%
@@ -607,8 +631,8 @@ quantile_df <- quantile_list %>%
                dplyr::mutate(ci = ifelse(
                  rowname == "pair",
                  V1,
-                 stringr::str_c("(", sprintf("%.4f", as.numeric(V1)),
-                                " \u2013 ", sprintf("%.4f", as.numeric(V2)), ")"))) %>%
+                 stringr::str_c("(", sprintf("%.3f", as.numeric(V1)),
+                                " \u2013 ", sprintf("%.3f", as.numeric(V2)), ")"))) %>%
                dplyr::select(-c(V1, V2))
   ) %>%
   purrr::map2(c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"),
@@ -629,11 +653,11 @@ agreement_table_wide <- dplyr::full_join(agreement_table, quantile_df,
                                          by = "rowname", suffix = c(" (point)", " (CI)")) %>%
   dplyr::filter(!(rowname %in% c("pair", "month"))) %>%
   dplyr::mutate(
-    `MODIS & NLCD` = paste0(sprintf("%.4f", as.numeric(`MODIS & NLCD (point)`)),
+    `MODIS & NLCD` = paste0(sprintf("%.3f", as.numeric(`MODIS & NLCD (point)`)),
                             " ", `MODIS & NLCD (CI)`),
-    `MODIS & Landsat 8` = paste0(sprintf("%.4f", as.numeric(`MODIS & Landsat 8 (point)`)),
+    `MODIS & Landsat 8` = paste0(sprintf("%.3f", as.numeric(`MODIS & Landsat 8 (point)`)),
                                  " ", `MODIS & Landsat 8 (CI)`),
-    `Landsat 8 & NLCD` = paste0(sprintf("%.4f", as.numeric(`Landsat 8 & NLCD (point)`)),
+    `Landsat 8 & NLCD` = paste0(sprintf("%.3f", as.numeric(`Landsat 8 & NLCD (point)`)),
                                 " ", `Landsat 8 & NLCD (CI)`)) %>%
   dplyr::left_join(agreement_full_desc_df, by = "rowname") %>%
   dplyr::select(c("Agreement Statistics", "MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
@@ -724,11 +748,13 @@ map_df <- tibble::tibble(gs_diff_df = gs_diff_list,
 
 # Create BA plots and export with purrr::pwalk()
 ba_plot <- map_df %>%
-  purrr::pwalk(function(gs_diff_df, agreement_df, quantile_df, ylab, suffix) {
-    ggplot2::ggplot() +
+  purrr::pmap(function(gs_diff_df, agreement_df, quantile_df, ylab, suffix) {
+    plot <- ggplot2::ggplot() +
       ggplot2::theme_bw() +
-      ggplot2::xlim(0, 0.6) +
-      ggplot2::ylim(-0.6, 0.6) +
+      # ggplot2::xlim(0, 0.7) +
+      # ggplot2::ylim(-0.7, 0.7) +
+      ggplot2::scale_x_continuous(breaks = seq(0, 0.7, by = 0.1), limits = c(0, 0.7)) +
+      ggplot2::scale_y_continuous(breaks = seq(-0.8, 0.8, by = 0.2), limits = c(-0.7, 0.7)) +
       # Plot Bland-Altman lines
       # Horizontal guide line of y = 0
       ggplot2::geom_hline(ggplot2::aes(yintercept = 0),
@@ -778,4 +804,158 @@ ba_plot <- map_df %>%
                     width = 6,
                     height = 6,
                     units = "in")
+    plot
   })
+
+ba_plot[[2]] <- ba_plot[[2]] +
+  ggplot2::theme(legend.position = c(0.05, 0.05),
+                 legend.justification = c("left", "bottom"),
+                 legend.box.just = "left")
+
+p <- gridExtra::arrangeGrob(ba_plot[[1]], ba_plot[[2]], ba_plot[[3]],
+                            nrow=2, ncol=2)
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/summerclear/ba_plots.jpg",
+                device = "jpeg",
+                width = 11,
+                height = 11,
+                units = "in")
+
+
+
+# Plot agreement stats by month -------------------------------------------
+# Create a reference df for raster pair
+pair_df <- tibble::tibble(landsat_26953 = c(0,1,1),
+                          nlcd_26953 = c(1,0,1),
+                          modis_26953 = c(1,1,0),
+                          pair = c("MODIS & NLCD", "MODIS & Landsat 8", "Landsat 8 & NLCD"))
+
+agreement_stat_df <- readr::read_rds("DATA/Processed/Aim2/Agreement/agreement_stat_df_pairwise_allmonths.rds") %>%
+  dplyr::rename_all(tolower) %>%
+  # change cp and tdi from list to numeric
+  dplyr::mutate(cp_05 = cp %>% purrr::map(dplyr::first) %>% as.numeric(),
+                cp_10 = cp %>% purrr::map(dplyr::last) %>% as.numeric(),
+                tdi_05 = tdi %>% purrr::map(dplyr::first) %>% as.numeric(),
+                tdi_10 = tdi %>% purrr::map(dplyr::last) %>% as.numeric()) %>%
+  # Add pair value
+  dplyr::left_join(pair_df, by = c("landsat_26953", "modis_26953", "nlcd_26953")) %>%
+  # select only needed stats
+  dplyr::select(meanb, lcl, ucl,
+                msd, cp_05, cp_10, tdi_05, tdi_10, ccc,
+                sigma2.alpha.est, sigma2.gamma.est, sigma2.alpha.gamma.est,
+                sigma2.alpha.beta.est, sigma2.beta.gamma.est, sigma2.epsilon.est,
+                phi2.beta.est,
+                pair, month)
+# flip the sign for the pair "MODIS - Landsat 8"
+agreement_stat_df[agreement_stat_df$pair == "MODIS & Landsat 8", ] <- agreement_stat_df[agreement_stat_df$pair == "MODIS & Landsat 8", ] %>%
+  dplyr::mutate_at(c("meanb", "lcl", "ucl"), function(x) {x <- (0 - x)})
+
+
+
+
+
+
+# Create a reference table for agreement stats name
+agreement_desc_df <- tibble::tibble(
+  agreement_stats = c("meanb", "msd", "cp_05", "cp_10", "tdi_05", "tdi_10", "ccc"),
+  `Agreement Statistics` = c("LOA", "MSD", "CP 0.05", "CP 0.10", "TDI 0.90", "TDI 0.95", "CCC")
+)
+
+# Clean agreement stats for ggplot
+agreement_by_month <- agreement_stat_df %>%
+  # Get absolute value for LOA (meanb)
+  dplyr::mutate(meanb = abs(meanb)) %>%
+  # Remove data for all months
+  dplyr::filter(month != "00") %>%
+  # pitvot table
+  tidyr::pivot_longer(
+    cols = meanb:ccc,
+    names_to = "agreement_stats",
+    values_to = "Value"
+  ) %>%
+  # get the name for agreement stats
+  dplyr::left_join(agreement_desc_df, by = "agreement_stats") %>%
+  dplyr::filter(!is.na(`Agreement Statistics`)) %>%
+  # Rename for later ggplot
+  dplyr::rename(Month = month) %>%
+  # Split by pair
+  dplyr::arrange(pair) %>%
+  dplyr::group_split(pair) %>%
+  setNames(unique(agreement_stat_df$pair))
+
+# Plot agreementbymonth and export
+plot_bymonth <- agreement_by_month %>%
+  purrr::map(function(df) {
+    # split data to scale and unscale stats
+    df_scale <- df %>%
+      dplyr::filter(`Agreement Statistics` %in% c("CCC", "CP 0.05", "CP 0.10"))
+    df_unscale <- df %>%
+      dplyr::filter(`Agreement Statistics` %in% c("LOA", "MSD", "TDI 0.95", "TDI 0.90"))
+    # Create plots for agreement by months
+    plot_list <- list(df_scale, df_unscale) %>%
+      purrr::map(~ggplot2::ggplot(data = .x,
+                                  ggplot2::aes(x = Month,
+                                               y = Value,
+                                               group = `Agreement Statistics`,
+                                               colour = `Agreement Statistics`)) +
+                   ggplot2::geom_point() +
+                   ggplot2::geom_line() +
+                   ggplot2::ggtitle(df$pair[1]) +
+                   ggplot2::theme_bw() +
+                   # ggsci::scale_color_nejm() +
+                   ggplot2::scale_color_brewer(palette = "Dark2") +
+                   ggplot2::theme(legend.position = "bottom"))
+    # Rescale
+    plot_list[[1]] <- plot_list[[1]] + ggplot2::ylim(0, 0.5)
+    plot_list[[2]] <- plot_list[[2]] + ggplot2::ylim(0, 1)
+    # Export
+    suffix <- df$pair[1] %>%
+      stringr::str_replace_all(pattern = " ", replacement = "_") %>%
+      rep(2) %>%
+      stringr::str_c(c("_scale", "_unscale"))
+    plot_list %>%
+      purrr::map2(suffix,
+                  ~ggplot2::ggsave(plot = .x,
+                                   paste0("outputs/figures/Aim2/summerclear/agreementbymonth_",
+                                          .y,
+                                          ".jpg"),
+                                   device = "jpeg",
+                                   width = 5,
+                                   height = 5,
+                                   units = "in"))
+    plot_list
+  })
+
+p <- gridExtra::arrangeGrob(plot_bymonth[[1]][[2]], plot_bymonth[[2]][[2]], plot_bymonth[[3]][[2]],
+                            nrow=2, ncol=2)
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/summerclear/agreementbymonth_unscale_plots.jpg",
+                device = "jpeg",
+                width = 10,
+                height = 10,
+                units = "in")
+
+p <- gridExtra::arrangeGrob(plot_bymonth[[1]][[1]], plot_bymonth[[2]][[1]], plot_bymonth[[3]][[1]],
+                            nrow=2, ncol=2)
+ggplot2::ggsave(plot = p,
+                "outputs/figures/Aim2/summerclear/agreementbymonth_scale_plots.jpg",
+                device = "jpeg",
+                width = 10,
+                height = 10,
+                units = "in")
+
+
+
+# Correlation coefficients ------------------------------------------------
+gs_all_pair_list <- readr::read_rds("DATA/Processed/Aim2/Agreement_summerclear/gs_all_pair_list.rds")
+
+gs_desc_df <- gs_all_pair_list[1] %>%
+  purrr::map(function(x){
+    purrr::map(x, ~.x %>% tidyr::pivot_wider(names_from = raster,
+                                             values_from = greenspace) %>%
+                 dplyr::rename(`Radius (m)` = distance))
+  }) %>%
+  dplyr::first()
+
+gs_desc_df[[2]] %$% corrr::correlate(landsat_26953, modis_26953)
+
