@@ -566,16 +566,16 @@ plot_bymonth <- agreement_by_month %>%
       stringr::str_c(c("_scale", "_unscale"))
     plot_list %>%
       purrr::map2(suffix,
-                   ~ggplot2::ggsave(plot = .x,
-                                    paste0("outputs/figures/Aim2/agreementbymonth_",
-                                           .y,
-                                           ".jpg"),
-                                    device = "jpeg",
-                                    width = 5,
-                                    height = 5,
-                                    units = "in"))
+                  ~ggplot2::ggsave(plot = .x,
+                                   paste0("outputs/figures/Aim2/agreementbymonth_",
+                                          .y,
+                                          ".jpg"),
+                                   device = "jpeg",
+                                   width = 5,
+                                   height = 5,
+                                   units = "in"))
     plot_list
-    })
+  })
 
 
 
