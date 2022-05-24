@@ -12,9 +12,10 @@ rm(list = ls())
 
 
 
-# * Load sources ----------------------------------------------------------
-# A `source()` file is run to execute its code.
-# source()
+# Functions ---------------------------------------------------------------
+
+source("scripts/Functions/save_data.R")
+source("scripts/Functions/create_folder.R")
 
 # * Load packages ---------------------------------------------------------
 # The function `package.check` will check if each package is on the local machine.
@@ -236,7 +237,7 @@ acs5yr <- acs5yr %>%
   # median family income with kids: B19125
   dplyr::mutate(ses_medianfamincome_withkid = B19125_002) %>%
   # employment: B23025
-  construct_pct_var(ses_unemployed, B23025_007, B23025_001) %>%
+  construct_pct_var(ses_unemployed, B23025_005, B23025_002) %>%
   # tenure/house ownership: B25003
   construct_pct_var(ses_renter_all, B25003_003, B25003_001) %>%
   # tenure/house ownership with children: B25012
@@ -287,39 +288,14 @@ table1_st <- analysis %>%
   vtable::st(out = "csv")
 
 # Save to disk ------------------------------------------------------------
-save_data <- function(dataset.name, file.location, file.location.arc){
-  readr::write_csv(dataset.name, paste0(file.location, ".csv")) # Save CSV
-  readr::write_csv(dataset.name, paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".csv")) # Archived CSV
-  saveRDS(dataset.name, file = paste0(file.location, ".rds")) # Save RDS
-  saveRDS(dataset.name, file = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".rds")) # ARchived RDS
-}
 
-save_data_sas <- function(dataset.name, file.location, file.location.arc){
-  dataset.name %<>% dplyr::mutate(dplyr::across(where(is.factor), as.character))
-  foreign::write.foreign(dataset.name,
-                         datafile = paste0(file.location, ".txt"),
-                         codefile = paste0(file.location, ".sas"),
-                         package = "SAS") # Save SAS
-  foreign::write.foreign(dataset.name,
-                         datafile = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".txt"),
-                         codefile = paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".sas"),
-                         package = "SAS") # Archived SAS
-}
-
-save_data_xlsx <- function(dataset.name, file.location, file.location.arc) {
-  openxlsx::write.xlsx(dataset.name,paste0(file.location, ".xlsx")) #Save XLSX
-  openxlsx::write.xlsx(dataset.name,paste0(file.location.arc, format(Sys.Date(), "_%Y%m%d"), ".xlsx")) #Archived XLSX
-}
-
-
-save_data(analysis, "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis")
-save_data_sas(analysis %>% sf::st_drop_geometry(),
-              "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis")
-save_data_xlsx(analysis %>% sf::st_drop_geometry(),
-               "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis")
-
-save_data(analysis_varlist, "DATA/Processed/Aim1/aim1_analysis_varlist", "DATA/Processed/Aim1/Archived/aim1_analysis_varlist")
-
-
+save_data(analysis, "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis",
+          sas = TRUE, xlsx = TRUE)
+save_data(analysis_varlist, "DATA/Processed/Aim1/aim1_analysis_varlist", "DATA/Processed/Aim1/Archived/aim1_analysis_varlist",
+          sas = TRUE)
 save_data(analysis_school, "DATA/Processed/Aim1/aim1_analysis_school", "DATA/Processed/Aim1/Archived/aim1_analysis_school")
 save_data(acs5yr, "DATA/Processed/Aim1/aim1_ses_by_cdenumber", "DATA/Processed/Aim1/Archived/aim1_analysis_by_cdenumber")
+
+
+
+
