@@ -16,6 +16,7 @@ save_data <- function(dataset.name, file.location, file.location.arc,
   # SAS
   if(sas) {
     dataset.name %<>% dplyr::mutate(dplyr::across(where(is.factor), as.character))
+    dataset.name %<>% sf::st_drop_geometry()
     foreign::write.foreign(dataset.name,
                            datafile = paste0(file.location, ".txt"),
                            codefile = paste0(file.location, ".sas"),
