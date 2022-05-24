@@ -14,7 +14,7 @@ rm(list = ls())
 # source()
 
 # * Load packages ---------------------------------------------------------
-# The function `package.check` will check if each package is on the local machine. 
+# The function `package.check` will check if each package is on the local machine.
 # If a package is installed, it will be loaded. If any are not, they will be installed and loaded.
 # r load_packages
 packages <- c("tidyverse", "magrittr")
@@ -39,9 +39,9 @@ raw_testscore2 <- readxl::read_excel("DATA/Raw/Adams12StudentData/2018-19 Data/F
 # * Merge raw testscore data sets -----------------------------------------
 # Merge to get a combined data set for student standardized test scores
 data_testscore <- dplyr::bind_rows(
-  raw_testscore1 %>% 
-    dplyr::mutate(sciencePerformanceLevel = as.numeric(sciencePerformanceLevel)), 
-  raw_testscore2 %>% 
+  raw_testscore1 %>%
+    dplyr::mutate(sciencePerformanceLevel = as.numeric(sciencePerformanceLevel)),
+  raw_testscore2 %>%
     dplyr::mutate(scienceScaleScore = as.numeric(scienceScaleScore),
                   sciencePerformanceLevel = as.numeric(sciencePerformanceLevel),
                   NWEA_Reading_Fall_RIT = as.numeric(NWEA_Reading_Fall_RIT),
@@ -56,10 +56,10 @@ data_testscore <- dplyr::bind_rows(
                   NWEA_Math_Spring_RIT = as.numeric(NWEA_Math_Spring_RIT),
                   NWEA_Language_Spring_RIT = as.numeric(NWEA_Language_Spring_RIT),
                   NWEA_Science_Spring_RIT = as.numeric(NWEA_Science_Spring_RIT)
-                  )) 
+                  ))
 # Create a unique ID for the data set
 # for data_testscore: 1-138526
-data_testscore <- data_testscore %>% 
+data_testscore <- data_testscore %>%
   dplyr::mutate(id_dao = sprintf("%s%08.0f","dao", seq(1, nrow(.))))
 
 
@@ -67,7 +67,7 @@ data_testscore <- data_testscore %>%
 # * Clean variables -------------------------------------------------------
 
 # Rename & coalesce variables
-data_testscore <- data_testscore %>% 
+data_testscore <- data_testscore %>%
   # Removing unnecessary columns
   dplyr::select(-starts_with(c("NWEA", "Fall_", "Spring_"))) %>%
   # Coalesce variables
@@ -78,7 +78,7 @@ data_testscore <- data_testscore %>%
                 instructionday = dplyr::coalesce(instructiondays, maxInstructionDay),
                 numbervisit = dplyr::coalesce(Number_of_Visits, `_numberofvisits`),
                 numbercourse = dplyr::coalesce(total_Number_of_courses, Total_Number_of_Courses),
-                numberf = dplyr::coalesce(number_of_F_s, Number_of_Fs)) %>% 
+                numberf = dplyr::coalesce(number_of_F_s, Number_of_Fs)) %>%
   dplyr::select(-c("mathPerformanceLevel", "mathPerformanceLevelDescription",
                    "ELAPerformanceLevel",  "ELAPerformanceLevelDescription",
                    "primaryTeacher_ID", "primaryTeacherPersonID",
@@ -89,11 +89,11 @@ data_testscore <- data_testscore %>%
                    "number_of_F_s", "Number_of_Fs")) %>%
   # convert 0 score for scale score to NA
   dplyr::mutate(ELAScaleScore = dplyr::na_if(ELAScaleScore, 0),
-                mathScaleScore = dplyr::na_if(mathScaleScore, 0)) %>% 
+                mathScaleScore = dplyr::na_if(mathScaleScore, 0)) %>%
   # Select only variables that will be used in the analysis
-  dplyr::select(id_dao, studentKey, cdenumber, Grade, endyear, 
+  dplyr::select(id_dao, studentKey, cdenumber, Grade, endyear,
                 birth_date, gender, ethnic_code,
-                ELAScaleScore, mathScaleScore, 
+                ELAScaleScore, mathScaleScore,
                 # scienceScaleScore,
                 # elaperformance, mathperformance, sciencePerformanceLevel,
                 gifted_talented, iep, totaldaysmissed, totalunexcuseddays, instructionday,
@@ -118,12 +118,12 @@ data_testscore <- data_testscore %>% dplyr::filter(!is.na(ELAScaleScore) | !is.n
 # Need to deduplicate the data set for student test score. It seems to have duplicated records for students (with different PrimaryTeacherID, test scores, ...)
 # Plan: Identify ALL covariates needed and deduplicate based on these variables.
 # r dedup
-data_testscore_dedup <-  data_testscore %>% 
-  # Remove duplicated observation at all variables except id_dao 
-  dplyr::distinct(dplyr::across(-id_dao), .keep_all = TRUE) %>% 
-  dplyr::arrange(studentKey) %>% 
+data_testscore_dedup <-  data_testscore %>%
+  # Remove duplicated observation at all variables except id_dao
+  dplyr::distinct(dplyr::across(-id_dao), .keep_all = TRUE) %>%
+  dplyr::arrange(studentKey) %>%
   # Create var dupe: TRUE = duplicated by studentKey, Grade, endyear
-  dplyr::group_by(studentKey, Grade, endyear) %>% 
+  dplyr::group_by(studentKey, Grade, endyear) %>%
   dplyr::mutate(dupe = n()>1)
 
 
@@ -131,23 +131,23 @@ data_testscore_dedup <-  data_testscore %>%
 
 # * Students to be checked for long/lat -----------------------------------
 # List of students to recheck X&Y
-list_recheckxy <- data_testscore_dedup %>% 
-  dplyr::filter(dupe == TRUE) %>% 
+list_recheckxy <- data_testscore_dedup %>%
+  dplyr::filter(dupe == TRUE) %>%
   dplyr::rename_all(tolower)
 
 
 # * Create final testscore data set ---------------------------------------
 
 # Create test score data set for Aim 1
-data_testscore_aim1 <- data_testscore %>% 
+data_testscore_aim1 <- data_testscore %>%
   # Remove duplicated observation at all variables except id_dao
-  dplyr::distinct(dplyr::across(-id_dao), .keep_all = TRUE) %>% 
-  dplyr::arrange(studentKey) %>% 
+  dplyr::distinct(dplyr::across(-id_dao), .keep_all = TRUE) %>%
+  dplyr::arrange(studentKey) %>%
   dplyr::rename_all(tolower)
 
-# Clean variables 
-data_testscore_aim1 <- data_testscore_aim1 %>% 
-  # Clean var ethnicity 
+# Clean variables
+data_testscore_aim1 <- data_testscore_aim1 %>%
+  # Clean var ethnicity
   dplyr::mutate(ethnicity = dplyr::case_when(ethnic_code == 1 ~ "Native American",
                                              ethnic_code == 2 ~ "Asian",
                                              ethnic_code == 3 ~ "African American",
@@ -165,14 +165,14 @@ data_testscore_aim1 <- data_testscore_aim1 %>%
                                          "Reading--Writing--Math--Dance",
                                          "Reading--Writing--Math--Psych",
                                          "Reading--Writing--Math--Scien",
-                                         "Reading--Writing--Math--Visua") 
-                  ~ "Both",
+                                         "Reading--Writing--Math--Visua")
+                  ~ "Gifted in Both Math and ELA",
                   gifted_talented %in% c("Creativity--Math",
                                          "Math",
                                          "Math--Psychomotor",
                                          "Math--Visual Arts",
                                          "Mathematics Gifted")
-                  ~ "Math",
+                  ~ "Gifted in Math",
                   gifted_talented %in% c("Creativity--Reading--W",
                                          "Creativity--Reading--Writing-",
                                          "Lang Arts",
@@ -181,10 +181,10 @@ data_testscore_aim1 <- data_testscore_aim1 %>%
                                          "Reading--Writing",
                                          "Reading--Writing--Scie",
                                          "Writing")
-                  ~ "ELA",
+                  ~ "Gifted in ELA",
                   gifted_talented %in% c("Creative Or Productive Thinki",
                                          "Creative or Productive Thinki",
-                                         "Creativity", 
+                                         "Creativity",
                                          "General Intellect",
                                          "General Intellectual Ability",
                                          "Leadership",
@@ -195,11 +195,11 @@ data_testscore_aim1 <- data_testscore_aim1 %>%
                                          "Science",
                                          "Talent Pool",
                                          "Visual Arts",
-                                         "Visual or Performing Arts") 
-                  ~ "Others",
+                                         "Visual or Performing Arts")
+                  ~ "Gifted in Other Field",
                   gifted_talented %in% c("Not Gifted",
                                          "Not Identified GT",
-                                         "NULL") 
+                                         "NULL")
                   | is.na(gifted_talented)
                   ~ "Not Identified as Gifted/Talented",
                   gifted_talented %in% c("Pending Evaluation")
@@ -207,22 +207,22 @@ data_testscore_aim1 <- data_testscore_aim1 %>%
                 special_ed = dplyr::case_when(
                   iep %in% c('"No "', "No", "NULL") | is.na(iep) ~ "No IEP",
                   iep == "Yes" ~ "IEP")
-                ) %>% 
-  dplyr::mutate(totaldayunexcusedmissed = totaldaysmissed + totalunexcuseddays) %>% 
+                ) %>%
+  dplyr::mutate(totaldayunexcusedmissed = totaldaysmissed + totalunexcuseddays) %>%
   # Set the correct variable type
-  dplyr::mutate_at(.vars = c("cdenumber","studentkey", "grade", 'gender', "ethnicity", "gifted", "special_ed"), as.factor) %>% 
+  dplyr::mutate_at(.vars = c("cdenumber","studentkey", "grade", 'gender', "ethnicity", "gifted", "special_ed"), as.factor) %>%
   # Arrange the variables with the function `dplyr::select`
-  dplyr::select(id_dao, cdenumber, 
+  dplyr::select(id_dao, cdenumber,
                 elascalescore, mathscalescore,
                 studentkey, grade, endyear, birth_date, gender,
                 totaldaysmissed, totalunexcuseddays, totaldayunexcusedmissed, instructionday,
                 ethnicity, gifted, special_ed,
-                x, y) 
+                x, y)
 
 
 
 # Add prefix to variable name
-data_testscore_aim1 <- data_testscore_aim1 %>% 
+data_testscore_aim1 <- data_testscore_aim1 %>%
   dplyr::rename_with(.cols = gender:special_ed, function(x){paste0("testscore_", x)})
 
 
