@@ -29,7 +29,106 @@ package_check <- lapply(packages, function(x) {
 # * Declare globals -------------------------------------------------------
 
 # Load data ---------------------------------------------------------------
-load_analysis <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds")
+load_analysis <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds") %>%
+  sf::st_drop_geometry()
+varname_df <- readr::read_csv("DATA/Raw/VariableDescriptions.csv") %>%
+  janitor::clean_names()
+
+
+# List of variables by level ----------------------------------------------
+
+varlist_studentkey <- varname_df %>%
+  dplyr::filter(data_level == "Student") %$%
+  variable_name
+varlist_studentkey
+# [1] "mathscalescore"
+# [2] "elascalescore"
+# [3] "studentkey"
+# [4] "testscore_gender"
+# [5] "testscore_ethnicity"
+# [6] "grade"
+# [7] "endyear"
+# [8] "testscore_totalunexcuseddays"
+# [9] "testscore_totalunexcuseddays_cat"
+# [10] "testscore_totaldaysmissed"
+# [11] "testscore_instructionday"
+# [12] "testscore_gifted"
+# [13] "testscore_special_ed"
+# [14] "geometry
+
+varlist_cdenumber <- varname_df %>%
+  dplyr::filter(data_level == "School") %$%
+  variable_name
+varlist_cdenumber
+# [1] "ieq_indoor"
+# [2] "ieq_indoor_cat"
+# [3] "ieq_thermal"
+# [4] "ieq_acoustic"
+# [5] "ieq_visual"
+# [6] "ieq_visual_cat"
+# [7] "cdenumber"
+# [8] "school_pct_frl_avg"
+# [9] "school_student_enrollment_avg"
+# [10] "school_student_enrollment_avg_cat"
+# [11] "geometry_school"
+
+varlist_GEOID <- varname_df %>%
+  dplyr::filter(data_level == "Census tract") %$%
+  variable_name
+varlist_GEOID
+# [1] "ses_edu_highschoolmore"      "ses_edu_bachelormore"
+# [3] "ses_married_6to17"           "ses_married_less18"
+# [5] "ses_poverty_all"             "ses_poverty_all_cat"
+# [7] "ses_poverty_6to17"           "ses_medianhhincome"
+# [9] "ses_medianhhincome_log10"    "ses_medianfamincome"
+# [11] "ses_medianfamincome_withkid" "ses_unemployed"
+# [13] "ses_unemployed_cat"          "ses_crowding"
+# [15] "ses_crowding_cat"            "ses_uninsured_all"
+# [17] "ses_uninsured_6to18"         "ses_renter_all"
+# [19] "ses_renter_all_cat"          "ses_renter_withkid_6to17"
+
+
+# Split data by level -----------------------------------------------------
+
+analysis_studentkey <- load_analysis %>%
+  dplyr::select(studentkey,
+                tidyselect::all_of(varlist_studentkey[!varlist_studentkey=="geometry"])) %>%
+  dplyr::distinct(studentkey, .keep_all = TRUE)
+
+analysis_cdenumber <- load_analysis %>%
+  dplyr::select(cdenumber,
+                tidyselect::all_of(varlist_cdenumber[!varlist_cdenumber=="geometry_school"])) %>%
+  dplyr::distinct(cdenumber, .keep_all = TRUE)
+
+analysis_geoid <- load_analysis %>%
+  dplyr::select(GEOID, tidyselect::starts_with("ses_")) %>%
+  dplyr::distinct(GEOID, .keep_all = TRUE)
+
+
+# Table a Student ---------------------------------------------------------
+
+desc_table_studentkey <- analysis_studentkey %>%
+  dplyr::select(-studentkey,
+                -tidyselect::ends_with("_cat")) %>%
+  vtable::st(out = "csv",
+             add.median = TRUE)
+
+# Table b School ----------------------------------------------------------
+
+desc_table_cdenumber <- analysis_cdenumber %>%
+  dplyr::select(-cdenumber,
+                -tidyselect::ends_with("_cat")) %>%
+  vtable::st(out = "csv",
+             add.median = TRUE)
+
+# Table c Census tract ----------------------------------------------------
+
+desc_table_geoid <- analysis_geoid %>%
+  dplyr::select(-GEOID) %>%
+  vtable::st(out = "csv",
+             add.median = TRUE)
+
+
 
 
 
@@ -92,6 +191,43 @@ table1_tract <- skimr::skim(descstat_tract) %>%
   dplyr::mutate(iqr = numeric.p75 - numeric.p25,
                 range = numeric.p100 - numeric.p0)
 
+
+# Intext Stats ------------------------------------------------------------
+
+load_analysis <- readr::read_rds("DATA/Processed/Aim1/aim1_analysis.rds")
+ses <- readr::read_rds("DATA/Processed/Aim1/aim1_ses.rds")
+
+
+
+# No students 37295
+load_analysis$studentkey %>% unique() %>% length()
+# No schools 47
+load_analysis$cdenumber %>% unique() %>% length()
+# No GEOID/census tracts 235
+load_analysis$GEOID %>% unique() %>% length()
+
+
+
+
+
+
+analysis_school <- load_analysis %>%
+  dplyr::select(cdenumber, school_pct_frl_avg, school_student_enrollment_avg,
+                ieq_thermal, ieq_acoustics, ieq_visual, ieq_indoor) %>%
+  dplyr::distinct(cdenumber, .keep_all = TRUE)
+
+desc_text_school <- analysis_school %>%
+  vtable::st(out = "csv",
+             file = "outputs/tables/Aim1/desc_text_school.csv")
+
+
+analysis_ct <- load_analysis %>%
+  dplyr::select(GEOID, tidyselect::starts_with("ses_")) %>%
+  dplyr::distinct(GEOID, .keep_all = TRUE)
+
+desc_text_ct <- analysis_ct %>%
+  dplyr::select(-GEOID) %>%
+  vtable::st(out = "csv")
 
 # Test code ---------------------------------------------------------------
 
