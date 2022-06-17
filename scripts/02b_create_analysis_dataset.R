@@ -7,15 +7,17 @@
 # ---------------------------------------------------------------------------- #
 
 
-# Preparation -------------------------------------------------------------
+# Clean the environment ---------------------------------------------------
 rm(list = ls())
-
-
 
 # Functions ---------------------------------------------------------------
 
 source("scripts/Functions/save_data.R")
 source("scripts/Functions/create_folder.R")
+
+
+# Create folders ----------------------------------------------------------
+
 
 # * Load packages ---------------------------------------------------------
 # The function `package.check` will check if each package is on the local machine.
@@ -37,8 +39,18 @@ dat <- readr::read_rds("DATA/Processed/Aim1/aim1_student_ieq_school_ses.rds")
 ses <- readr::read_rds("DATA/Processed/Aim1/aim1_ses.rds")
 attendance_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_attendance_sf.rds") %>% sf::st_as_sf()
 tract <- tigris::tracts(state = 'CO', year = 2019)
+expense_df <- readr::read_rds("DATA/Processed/Aim1/expense_df.rds")
+coi <- readr::read_csv("DATA/Raw/SES index/Child Opportunity Index/index.csv") %>%
+  dplyr::filter(stateusps == "CO" & year == 2015) %>%
+  dplyr::select(geoid, tidyselect::ends_with("SE_nat")) %>%
+  dplyr::rename(GEOID = geoid)
 
-
+ruca <- openxlsx::read.xlsx("DATA/Raw/ruca2010revised.xlsx",
+                            sheet = "Data", startRow = 2) %>%
+  janitor::clean_names() %>%
+  dplyr::filter(select_state == "CO") %>%
+  dplyr::rename(GEOID = 4, ruca = 5) %>%
+  dplyr::select(GEOID, ruca)
 
 # Remove extra SES vars ---------------------------------------------------
 
@@ -58,6 +70,8 @@ analysis <- dat %>%
   # Clean variable gender
   dplyr::mutate(testscore_gender = dplyr::recode(testscore_gender, "M"="Male")) %>%
   dplyr::mutate(testscore_gender = dplyr::recode(testscore_gender, "F"="Female")) %>%
+  # Clean pct frl
+  dplyr::mutate(school_pct_frl_avg = school_pct_frl_avg*100) %>%
   # Clean ses variables
   # log10 for ses_medianhhincome
   dplyr::mutate(ses_medianhhincome_log10 = log10(ses_medianhhincome)) %>%
@@ -66,7 +80,7 @@ analysis <- dat %>%
                        multiply_100)) %>%
   # set reference level for categorical variables
   dplyr::mutate(testscore_ethnicity = forcats::fct_relevel(testscore_ethnicity, "White"),
-                testscore_gifted = forcats::fct_relevel(testscore_gifted, "Not Identified as Gifted/Talented"),
+                testscore_gifted = forcats::fct_relevel(testscore_gifted, "Not Identified as Gifted"),
                 testscore_special_ed = forcats::fct_relevel(testscore_special_ed, "No IEP"),
                 testscore_gender = forcats::fct_relevel(testscore_gender, "Male")) %>%
   # Categorize variables
@@ -125,6 +139,16 @@ analysis <- dat %>%
                                                   TRUE ~ NA_character_)
                 ) %>%
   dplyr::mutate(dplyr::across(tidyselect::ends_with("_cat"), as.factor)) %>%
+  # Add school expense data
+  dplyr::left_join(expense_df %>%
+                     dplyr::select(cdenumber, tidyselect::starts_with("p")),
+                   by = "cdenumber") %>%
+  # Get COI
+  dplyr::mutate(GEOID = GEOID %>% as.character()) %>%
+  dplyr::left_join(coi, by = "GEOID") %>%
+  # Get ruca
+  dplyr::left_join(ruca, by = "GEOID") %>%
+
   # Limit instruction days to >=145
   dplyr::filter(testscore_instructionday >= 145) %>%
   # Limit missed day to half of max instruction days
@@ -132,6 +156,7 @@ analysis <- dat %>%
   # Limit to with IEQ measurements
   dplyr::filter(!is.na(ieq_indoor) & !is.na(ieq_visual) &
                   !is.na(ieq_acoustics) & !is.na(ieq_thermal))
+
 
 
 analysis %$% summary(school_student_enrollment_avg_cat)
@@ -258,7 +283,13 @@ acs5yr <- acs5yr %>%
 
 acs5yr_ses <- acs5yr %>% dplyr::select(-contains(c("B1", "B2")))
 
-analysis_school <- analysis_school %>% dplyr::left_join(acs5yr_ses, by = "cdenumber")
+analysis_school <- analysis_school %>%
+  dplyr::left_join(acs5yr_ses, by = "cdenumber") %>%
+  dplyr::left_join(expense_df %>%
+                     dplyr::select(cdenumber, tidyselect::starts_with("p")),
+                   by = "cdenumber")
+
+
 
 # clean variable names
 analysis_school <- analysis_school %>% janitor::clean_names()
@@ -290,9 +321,9 @@ table1_st <- analysis %>%
 # Save to disk ------------------------------------------------------------
 
 save_data(analysis, "DATA/Processed/Aim1/aim1_analysis", "DATA/Processed/Aim1/Archived/aim1_analysis",
-          sas = TRUE, xlsx = TRUE)
+          xlsx = TRUE)
 save_data(analysis_varlist, "DATA/Processed/Aim1/aim1_analysis_varlist", "DATA/Processed/Aim1/Archived/aim1_analysis_varlist",
-          sas = TRUE)
+          xlsx = TRUE)
 save_data(analysis_school, "DATA/Processed/Aim1/aim1_analysis_school", "DATA/Processed/Aim1/Archived/aim1_analysis_school")
 save_data(acs5yr, "DATA/Processed/Aim1/aim1_ses_by_cdenumber", "DATA/Processed/Aim1/Archived/aim1_analysis_by_cdenumber")
 
