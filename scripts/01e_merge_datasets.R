@@ -54,34 +54,34 @@ testscore <- readr::read_rds("DATA/Processed/Aim1/aim1_testscore.rds")
 ieq <- readr::read_rds("DATA/Processed/Aim1/aim1_ieq.rds")
 school <- readr::read_rds("DATA/Processed/Aim1/aim1_school.rds")
 ses <- readr::read_rds("DATA/Processed/Aim1/aim1_ses.rds")
-tract <- tigris::tracts(state = 'CO', year = 2019) 
+tract <- tigris::tracts(state = 'CO', year = 2019)
 boundary_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_boundary_sf.rds") %>% sf::st_as_sf()
 location_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_location_sf.rds") %>% sf::st_as_sf()
 attendance_sf <- readr::read_rds("DATA/Processed/Aim1/aim1_attendance_sf.rds") %>% sf::st_as_sf()
-list_recheckxy <- readr::read_rds("DATA/Processed/Aim1/list_recheckxy.rds") 
+list_recheckxy <- readr::read_rds("DATA/Processed/Aim1/list_recheckxy.rds")
 
 
 
 # Recheck XY  -------------------------------------------------------------
 
-recheckxy <- list_recheckxy %>% 
+recheckxy <- list_recheckxy %>%
   # convert to sf object
-  sf::st_as_sf(coords = c("x", "y"), crs = 4326) %>% 
+  sf::st_as_sf(coords = c("x", "y"), crs = 4326) %>%
   # Reproject to match crs from the sf object "tract"
-  sf::st_transform(sf::st_crs(tract)) %>% 
+  sf::st_transform(sf::st_crs(tract)) %>%
   # spatially join to dataset tract to get censustract GEOID
-  sf::st_join(tract %>% dplyr::select(GEOID) %>% dplyr::mutate(GEOID = as.factor(GEOID))) %>% 
+  sf::st_join(tract %>% dplyr::select(GEOID) %>% dplyr::mutate(GEOID = as.factor(GEOID))) %>%
   # Reproject to match crs from Google maps to do physical lookup
-  sf::st_transform(crs = 4326) %>% 
+  sf::st_transform(crs = 4326) %>%
   # Create a variable to lookup on GoogleMap
-  dplyr::mutate(ggmapxy = paste0(sf::st_coordinates(.)[,2], ", ", sf::st_coordinates(.)[,1])) %>% 
+  dplyr::mutate(ggmapxy = paste0(sf::st_coordinates(.)[,2], ", ", sf::st_coordinates(.)[,1])) %>%
   # Select only necessary variables
   dplyr::select(id_dao, studentkey, cdenumber, grade, endyear, ggmapxy, GEOID)
 
 # Calculate distance between pairs of different addresses
-test <- recheckxy %>% 
-  dplyr::select(id_dao) %>% 
-  sf::st_distance () %>% 
+test <- recheckxy %>%
+  dplyr::select(id_dao) %>%
+  sf::st_distance () %>%
   as.matrix()
 
 test_distance <-  diag(test[c(2,4,6,8,10,12), c(1,3,5,7,9,11)])
@@ -89,16 +89,16 @@ summary(test_distance)
 rm(test, test_distance)
 
 # Calculate the school catchment
-test <- recheckxy %>% 
-  dplyr::select(id_dao, cdenumber, GEOID) %>% 
+test <- recheckxy %>%
+  dplyr::select(id_dao, cdenumber, GEOID) %>%
   # Reproject to match crs from the sf object "boundary_sf"
-  sf::st_transform(sf::st_crs(attendance_sf)) %>% 
+  sf::st_transform(sf::st_crs(attendance_sf)) %>%
   # spatially join to dataset boundary to get school catchment
-  sf::st_join(attendance_sf %>% dplyr::select(cdenumber) %>% dplyr::rename(cdenumber_insab = cdenumber)) %>% 
+  sf::st_join(attendance_sf %>% dplyr::select(cdenumber) %>% dplyr::rename(cdenumber_insab = cdenumber)) %>%
   # Reproject to match crs from the sf object "boundary_sf"
-  sf::st_transform(sf::st_crs(boundary_sf)) %>%   
+  sf::st_transform(sf::st_crs(boundary_sf)) %>%
   # nearest school boundary
-  dplyr::mutate(cdenumber_nearboundary = boundary_sf$cdenumber[st_nearest_feature(., boundary_sf %>% dplyr::select(cdenumber))]) %>% 
+  dplyr::mutate(cdenumber_nearboundary = boundary_sf$cdenumber[st_nearest_feature(., boundary_sf %>% dplyr::select(cdenumber))]) %>%
   # nearest school location
   dplyr::mutate(cdenumber_nearschool = location_sf$cdenumber[st_nearest_feature(., location_sf %>% dplyr::select(cdenumber))])
 
@@ -133,38 +133,38 @@ test <- recheckxy %>%
 # Include:  dao00058753
 # Exclude:  dao00058752
 
-testscore_dedup <- testscore %>% 
-  dplyr::filter(!(id_dao %in% c("dao00054965", "dao00056239", "dao00062200", 
+testscore_dedup <- testscore %>%
+  dplyr::filter(!(id_dao %in% c("dao00054965", "dao00056239", "dao00062200",
                                 "dao00076848", "dao00049737", "dao00058752")))
 
 
 
-rm(list_recheckxy)  
+rm(list_recheckxy)
 
 # Merge all data sets -----------------------------------------------------
 
 # School census
-location <-   location_sf %>% 
+location <-   location_sf %>%
   # Reproject to match crs from the sf object "tract"
-  sf::st_transform(sf::st_crs(tract)) %>% 
+  sf::st_transform(sf::st_crs(tract)) %>%
   # spatially join to dataset tract to get censustract GEOID
-  sf::st_join(tract %>% dplyr::select(GEOID) %>% dplyr::mutate(GEOID = as.factor(GEOID))) %>% 
+  sf::st_join(tract %>% dplyr::select(GEOID) %>% dplyr::mutate(GEOID = as.factor(GEOID))) %>%
   # Select only necessary variables
-  dplyr::select(cdenumber, GEOID) %>% 
+  dplyr::select(cdenumber, GEOID) %>%
   # add data set ses
-  dplyr::left_join(ses %>% dplyr::select(-contains(c("B1", "B2"))), by = "GEOID") %>% 
+  dplyr::left_join(ses %>% dplyr::select(-contains(c("B1", "B2"))), by = "GEOID") %>%
   #rename var
-  dplyr::rename_with(.cols = ses_married_6to17:ses_uninsured_all, function(x){paste0("school_",x)}) %>% 
+  dplyr::rename_with(.cols = ses_married_6to17:ses_uninsured_all, function(x){paste0("school_",x)}) %>%
   # drop geometry
-  sf::st_drop_geometry() %>% 
+  sf::st_drop_geometry() %>%
   dplyr::select(-c("GEOID", "B01003_001"))
 
 
 # Convert testscore_dedup to a sf object
-testscore_sf <- testscore_dedup %>% 
-  dplyr::filter(!is.na(x) & !is.na(y)) %>% 
+testscore_sf <- testscore_dedup %>%
+  dplyr::filter(!is.na(x) & !is.na(y)) %>%
   # convert to sf object
-  sf::st_as_sf(coords = c("x", "y"), crs = 4326) %>% 
+  sf::st_as_sf(coords = c("x", "y"), crs = 4326) %>%
   # Reproject to match crs from the sf object "tract"s
   sf::st_transform(sf::st_crs(tract))
 
@@ -176,18 +176,22 @@ flowchart %<>% add_row(name = "Exclude: Testscore with no long/lat", n = sum(is.
 
 
 # testcore + ieq
-dat <- dplyr::left_join(testscore_sf, ieq, by = "cdenumber") %>% 
+dat <- dplyr::left_join(testscore_sf, ieq, by = "cdenumber") %>%
   # add dataset school
-  dplyr::left_join(school %>% dplyr::select(cdenumber, school_pct_frl_avg, school_student_enrollment_avg), 
-                   by = "cdenumber") %>% 
+  dplyr::left_join(school %>% dplyr::select(cdenumber,
+                                            school_pct_frl_avg,
+                                            school_student_enrollment_avg,
+                                            per_school_administration,
+                                            per_operations_main),
+                   by = "cdenumber") %>%
   # spatially join to dataset tract to get censustract GEOID
-  sf::st_join(tract %>% dplyr::select(GEOID) %>% dplyr::mutate(GEOID = as.factor(GEOID))) %>% 
+  sf::st_join(tract %>% dplyr::select(GEOID) %>% dplyr::mutate(GEOID = as.factor(GEOID))) %>%
   # add data set ses
-  dplyr::left_join(ses %>% dplyr::select(-contains(c("B1", "B2"))), by = "GEOID") %>% 
+  dplyr::left_join(ses %>% dplyr::select(-contains(c("B1", "B2"))), by = "GEOID") %>%
   # add location
   dplyr::left_join(location, by = "cdenumber")
-  
-dat <- dat %>% 
+
+dat <- dat %>%
   # Create index variables for flowchart sample size calculation
   dplyr::mutate(i1 = !is.na(ieq_visual),
                 i2 = !is.na(school_pct_frl_avg),
@@ -197,9 +201,9 @@ dat <- dat %>%
 
 # Exclusion/Inclusion -----------------------------------------------------
 
-dat <- dat %>% 
+dat <- dat %>%
   # Exclusion: student's residence geocoded to within the state Colorado
-  dplyr::filter(stringr::str_sub(GEOID,1,2) == "08") #%>% 
+  dplyr::filter(stringr::str_sub(GEOID,1,2) == "08") #%>%
   # Exclusion: student in school with no IEQ data
   # dplyr::filter(i1)
 
