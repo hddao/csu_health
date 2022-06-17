@@ -445,7 +445,7 @@ quantile_multi_model <- purrr::pmap(combos, build_quantile_model_50)
 
 
 stargazer::stargazer(quantile_multi_model,
-                     rq.se = "boot",
+                     # rq.se = "boot",
                      column.labels = rep(c("Grade 3", "Grade 4", "Grade 5"), times = 2),
                      # covariate.labels = ,
                      dep.var.labels = c("ELA", "Math"),
@@ -455,10 +455,155 @@ stargazer::stargazer(quantile_multi_model,
                      keep.stat = c('n'),
                      type ='text',
                      style = "default",
+                     # out = "outputs/tables/Aim1/school_model_ieq_thermal.html",
+                     # out = "outputs/tables/Aim1/school_model_ieq_acoustics.html",
+                     # out = "outputs/tables/Aim1/school_model_ieq_visual.html",
                      # out = "outputs/tables/Aim1/school_model_ieq_indoor.html",
                      summary = TRUE)
 
 
+# Table X  ----------------------------------------------------------------
+
+analysis_grade <- load_analysis_school %>%
+  dplyr::mutate(grade = grade %>% as.character()) %>%
+  dplyr::filter(grade %in% c("30", "40", "50")) %>%
+  dplyr::group_split(grade) %>%
+  `names<-`(c("30", "40", "50"))
+
+varname_df <- tibble::tibble(
+  term = c("ieq_indoor", "ieq_thermal", "ieq_acoustics", "ieq_visual",
+           "ieq_indoor_cat2", "ieq_visual_cat2", "ieq_visual_cat3",
+           "ses_medianhhincome_log10",
+           "testscore_ethnicityAfrican American", "testscore_ethnicityAsian",
+           "testscore_ethnicityHispanic", "testscore_ethnicityNative American",
+           "testscore_ethnicityPacific Islander", "testscore_ethnicityTwo or more",
+           "testscore_genderFemale",
+           "testscore_giftedGifted in Both Math and ELA", "testscore_giftedGifted in ELA",
+           "testscore_giftedGifted in Math", "testscore_giftedGifted in Other Fields",
+           "testscore_special_edIEP",
+           "testscore_totalunexcuseddays_cat2", "testscore_totalunexcuseddays_cat3",
+           "testscore_totalunexcuseddays_cat4",
+           "testscore_totaldaysmissed",
+           "school_pct_frl_avg"),
+  variable_label = c("Indoor Air Quality", "Thermal Comfort", "Acoustics", "Visual Quality",
+                     "   >80",
+                     "   >50 - 60",
+                     "   >60",
+                     "Log10 median household income",
+                     "   African American", "   Asian",
+                     "   Hispanic", "   Native American",
+                     "   Pacific Islander", "   Two or more",
+                     "   Female",
+                     "   Gifted in Both Math and ELA", "   Gifted in ELA",
+                     "   Gifted in Math", "   Gifted in Other Fields",
+                     "   IEP",
+                     "   >0 - 2", "   >2 - 5", "   >5",
+                     "Missed days",
+                     "School % free or reduced-price lunch"))
+
+outcome <- c("math_mean", "ela_mean")
+exp <- c("ieq_indoor", "ieq_thermal", "ieq_acoustics", "ieq_visual")
+# covar <- c("r_SE_nat")
+covar <- c("school_pct_frl_avg + ethnicity_african_american + ethnicity_asian + ethnicity_hispanic + ethnicity_two_or_more + ethnicity_others2 + specialed_iep")
+map_df <- tidyr::crossing(outcome, exp, covar,  df = analysis_grade)
+rm(outcome, exp, covar)
+
+# outcome <- "math_mean"
+# exp <- "ieq_indoor"
+# covar <- c("school_pct_frl_avg + ethnicity_african_american + ethnicity_asian + ethnicity_hispanic + ethnicity_two_or_more + ethnicity_others2 + specialed_iep + ses_medianhhincome_log10")
+# df <- analysis_grade[[1]]
+
+build_quantile_model_median <- function(outcome, exp, covar, df){
+  grade <- df$grade[1]
+  tictoc::tic(paste0(grade, " ", outcome, " ~ ", exp, covar))
+  # get model info
+  exp_name <- exp
+  # Create vector of covar & exp
+  covar_chr <- covar %>% stringr::str_split(pattern = "\\+") %>%
+    dplyr::first() %>% stringr::str_trim(side = "both")
+  exp_chr <- exp %>% stringr::str_split(pattern = "\\+") %>%
+    dplyr::first() %>% stringr::str_trim(side = "both") %>%
+    purrr::discard(~.x == "")
+  # # Remove NA observations
+  # df <- df %>%
+  #   dplyr::select(c(tidyselect::all_of(c(outcome)),
+  #                   tidyselect::all_of(covar_chr),
+  #                   tidyselect::any_of(exp_chr),
+  #                   "cdenumber")) %>%
+  #   tidyr::drop_na()
+  # Create formula
+  formula <- paste0(outcome, " ~ ", exp, " + ", covar) %>% stats::as.formula()
+  # Run model
+  model <- df %>% quantreg::rq(formula, data = ., tau = 0.5)
+  nobs <- nrow(df)
+  model_p <- quantreg::summary.rq(model, se = 'boot')$coefficients[,4] %>% as.numeric()
+  model_tidy <- model %>%
+    broom::tidy() %>%
+    dplyr::mutate(outcome = outcome,
+                  grade = grade,
+                  exp_name = exp_name,
+                  nobs = nobs,
+                  p.value = model_p)
+  tictoc::toc()
+  model_tidy
+}
+
+quantile <- map_df %>% purrr::pmap(build_quantile_model_median)
+
+table_main <- quantile %>%
+  dplyr::bind_rows() %>%
+  dplyr::group_split(outcome, grade) %>%
+  purrr::map(function(x){
+    table <- x %>%
+      dplyr::filter(term %in% c(
+        # "(Intercept)",
+        "ieq_indoor", "ieq_thermal", "ieq_acoustics", "ieq_visual")) %>%
+      dplyr::mutate(ci95 = paste0("(", sprintf("%.2f", conf.low),
+                                  ", ", sprintf("%.2f", conf.high),
+                                  ")"
+      )) %>%
+      dplyr::mutate(p = dplyr::case_when(p.value > 0.05 ~"",
+                                         p.value %>% dplyr::between(0.01, 0.05) ~ "*",
+                                         p.value %>% dplyr::between(0.001, 0.01) ~ "**",
+                                         p.value < 0.001 ~"***"),
+                    beta = sprintf("%.2f", estimate) %>% paste0(p)) %>%
+      dplyr::left_join(varname_df, by = "term") %>%
+      dplyr::mutate(variable_label = ifelse(is.na(variable_label), term, variable_label)) %>%
+      dplyr::mutate(model = paste0(outcome, "|", grade, "|", exp_name))
+    table <- table[c(1, 3, 2, 4), ]
+  }
+  )
+
+table_main_wide <- table_main
+table_main_wide <- c(list(table_main_wide[1:3]), list(table_main_wide[4:6])) %>%
+  purrr::map_depth(2, function(x){
+    schoollevel <- ifelse(x$grade[1] == "30", "Grade 3",
+                          ifelse(x$grade[1] == "40", "Grade 4", "Grade 5"))
+    label <- paste0(schoollevel, " (n=", scales::label_comma(accuracy = 1)(x$nobs[1]), ")")
+    beta <- x %>%
+      dplyr::select(variable_label, beta, ci95, model) %>%
+      dplyr::bind_rows(tibble::tibble(variable_label = c("Variable", NA),
+                                      beta = c(label, "\U03B2"),
+                                      ci95 = c(NA, "95% CI"),
+                                      model = NA),.)
+    nrow <- (table_main_wide %>% purrr::map_dbl(~nrow(.x)) %>% max()) +2
+
+    if(nrow(beta) <  nrow) {
+      beta <- beta %>%
+        dplyr::bind_rows(tibble::tibble(variable_label = "   >60",
+                                        beta = NA, ci95 = NA, model = NA))
+    }
+    beta <- beta %>% dplyr::rename_with(~paste0("x", x$grade[1], .))
+  }) %>%
+  purrr::map(~.x %>%
+               dplyr::bind_cols() %>%
+               dplyr::select(-tidyselect::ends_with("model"),
+                             -c("x40variable_label", "x50variable_label"))
+  ) %>%
+  dplyr::bind_rows()
+
+readr::write_csv(table_main_wide,
+                 "outputs/tables/Aim1/table_school_model.csv")
 
 
 
@@ -467,14 +612,7 @@ stargazer::stargazer(quantile_multi_model,
 
 
 
-
-
-
-
-
-
-
-
+# Testing codes -----------------------------------------------------------
 
 
 
