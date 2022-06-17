@@ -95,7 +95,8 @@ data_testscore <- data_testscore %>%
                 birth_date, gender, ethnic_code,
                 ELAScaleScore, mathScaleScore,
                 # scienceScaleScore,
-                # elaperformance, mathperformance, sciencePerformanceLevel,
+                elaperformance, mathperformance,
+                # sciencePerformanceLevel,
                 gifted_talented, iep, totaldaysmissed, totalunexcuseddays, instructionday,
                 X, Y)
   # # Remove rows with missing values for either ELAScaleScore or mathScaleScore
@@ -196,12 +197,12 @@ data_testscore_aim1 <- data_testscore_aim1 %>%
                                          "Talent Pool",
                                          "Visual Arts",
                                          "Visual or Performing Arts")
-                  ~ "Gifted in Other Field",
+                  ~ "Gifted in Other Fields",
                   gifted_talented %in% c("Not Gifted",
                                          "Not Identified GT",
                                          "NULL")
                   | is.na(gifted_talented)
-                  ~ "Not Identified as Gifted/Talented",
+                  ~ "Not Identified as Gifted",
                   gifted_talented %in% c("Pending Evaluation")
                   ~ NA_character_),
                 special_ed = dplyr::case_when(
@@ -211,9 +212,18 @@ data_testscore_aim1 <- data_testscore_aim1 %>%
   dplyr::mutate(totaldayunexcusedmissed = totaldaysmissed + totalunexcuseddays) %>%
   # Set the correct variable type
   dplyr::mutate_at(.vars = c("cdenumber","studentkey", "grade", 'gender', "ethnicity", "gifted", "special_ed"), as.factor) %>%
+  # Clean math and ela performance
+  dplyr::mutate(mathperf = ifelse(mathperformance %in% c("Met", "Exceeded"), "Met or Exceeded", NA)) %>%
+  dplyr::mutate(mathperf = ifelse(mathperformance %in% c("Approached", "Did Not Meet", "Partially Met"), "Did Not Meet", mathperf)) %>%
+  dplyr::mutate(elaperf = ifelse(elaperformance %in% c("Met", "Exceeded"), "Met or Exceeded", NA)) %>%
+  dplyr::mutate(elaperf = ifelse(elaperformance %in% c("Approached", "Did Not Meet", "Partially Met"), "Did Not Meet", elaperf)) %>%
+  dplyr::mutate_at(c("mathperf", "elaperf"), as.factor) %>%
+
+
   # Arrange the variables with the function `dplyr::select`
   dplyr::select(id_dao, cdenumber,
                 elascalescore, mathscalescore,
+                mathperf, elaperf,
                 studentkey, grade, endyear, birth_date, gender,
                 totaldaysmissed, totalunexcuseddays, totaldayunexcusedmissed, instructionday,
                 ethnicity, gifted, special_ed,
