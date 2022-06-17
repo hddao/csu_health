@@ -1,0 +1,164 @@
+---
+title: |
+  | Mixed Effects Models with Spatial Correlation Function Fitted Using the NLME
+  Package
+subtitle: |
+  | May 27, 2022
+author: |
+  | Michael C. Wimberly
+  | Department of Geography and Environmental Sustainability, University of Oklahoma
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+```{r, message = FALSE}
+library(sf)
+library(tidyverse)
+library(terra)
+library(gstat)
+library(nlme)
+
+```
+
+
+## Data
+
+Start by generating some artificial data
+
+1. 1000 students in nine schools
+2. Each school has a different intercept, simulated as a uniform random variable between 50 and 70
+3. Test scores modeled as a linear function of NDVI with slope of 10 added to the school-level intercept
+4. NDVI is simulated as a Gaussian random field
+5. Spatial and independent (non-spatial) errors are added to these "true" score values to generate the observed test scores
+6. Spatial errors are simulated as a Gaussian random field
+7. Non-spatial error are simulated as IID random variables
+
+To start, we generate a polygon for the overall study area, and then subdivide it into nine square tiles (one for each school zone). Then we sample student homes at random locations and interect them with the school zones.
+
+```{r}
+# Set random number seed
+set.seed(22003)
+
+# Generate bounding polygon for the study area
+pol <- st_sfc(st_polygon(list(cbind(c(0,30000,30000,0,0),
+                                   c(0,0,30000,30000,0)))))
+h <- st_sf(pol)
+# Split up into nine zones
+sch_zones <- st_make_grid(h, cellsize = 10000)
+sch_zones <- st_as_sf(sch_zones)
+sch_zones$zone <- 1:9
+# Generate 1000 student homes at random locations
+homes <- st_sample(sch_zones, size = 1000)
+homes <- st_as_sf(homes)
+# Add the correponding school zone to each home locations
+students <- st_join(homes, sch_zones)
+coords <- st_coordinates(students)
+students <- bind_cols(students, 
+                      data.frame(st_coordinates(students)))
+# Map the zones and home locations
+ggplot() +
+  geom_sf(data = sch_zones) +
+  geom_sf(data = students)
+
+```
+
+Next, we generate artificial data NDVI data and the spatial error term as spatially correlated gaussian random fields. We also generate another spatially correlated "garbage" variable that is independent of the test scores.
+
+
+```{r}
+# Generate an empty grid for the random fields
+blankraster <- rast(vect(h), resolution = 60)
+
+# Model for NDVI (short range correlation)
+gmodel_1 <- gstat(formula=z~1, locations=~x+y, dummy=T, beta=1,
+                  model=vgm(psill=0.5, range=500, model='Sph'), 
+                  nmax=20)
+# Model for spatially correlated error (longer-range correlation)
+gmodel_2 <- gstat(formula=z~1, locations=~x+y, dummy=T, beta=1,
+                  model=vgm(psill=0.5, range=2000, model='Sph'), 
+                  nmax=20)
+
+# Model for spatially correlated "garbage" variable (longer-range correlation)
+gmodel_3 <- gstat(formula=z~1, locations=~x+y, dummy=T, beta=1,
+                  model=vgm(psill=0.5, range=3000, model='Sph'), 
+                  nmax=20)
+
+
+# Generate spatially correlated random field for ndvi and the 
+# spatially correlated error
+# Notes - these take a while to run
+# For some reason, the interpolate() function doesn't work if I try to do
+# just one simulation (nsim = 1), so I'm doing two for each variable
+ndvi_interp <- interpolate(blankraster, 
+                           gmodel_1, 
+                           nsim = 2,
+                           xyNames = c("x", "y"),
+                           debug.level=0)
+error_interp <- interpolate(blankraster, 
+                            gmodel_2, 
+                            nsim = 2,
+                            xyNames = c("x", "y"),
+                            debug.level=0)
+garbage_interp <- interpolate(blankraster, 
+                              gmodel_3, 
+                              nsim = 2,
+                              xyNames = c("x", "y"),
+                              debug.level=0)
+
+# Transform ndvi and spatial error terms to more "realistic" values
+ndvi_interp <- (ndvi_interp + 2) * 0.2
+error_interp <- (error_interp - 1) * 2
+
+plot(ndvi_interp[[1]], main = "NDVI")
+plot(error_interp[[1]], main = "Spatial Error")
+plot(garbage_interp[[1]], main = "Garbage Variable")
+```
+Extract ndvi, spatial error, and garbage variable values for each of the home locations. Then we generate the artificial scores by adding the group level intercept to ndvi x 10 (which we are summing to be the "true" ndvi effect in this example) and then adding noise from the spatial and non-spatial random errors. The map of the resulting scores shows the strong school-level random effect along with other, finer-scale spatial variaiblity resulting from the ndvi effects and the spatial error term.
+
+```{r}
+# Random generate intercepts for each zone
+zoneint <- runif(9, 50, 70)
+
+# Extract ndvi, spatial error, and "garbage" variables for each home location
+rsample <- terra::extract(c(ndvi_interp[[1]], error_interp[[1]], garbage_interp[[1]]),
+                          vect(students))
+
+names(rsample)[2:4] <- c("ndvi", "spaterr", "garbage")
+
+students <- bind_cols(students, rsample[,2:4])
+
+students <- students %>%
+  mutate(groupint = zoneint[zone],
+         inderr = rnorm(n(), 0, 2),
+         score = groupint + ndvi * 10 + spaterr + inderr)
+
+ggplot() +
+  geom_sf(data = sch_zones) +
+  geom_sf(data = students, aes(color = score), size = 2)
+
+```
+Now, we try to estimate the estimate the "true" ndvi effects from the artificial data using different models. The simple linear model (lm1) is technically wrong because it doesn't account for the school level effects of the spatially correlated error. However, it does give us a reasonable estimate of the ndvi effect in this case. However, note that lm2 finds a statisically significant effect of the garbage variable on test scores, resulting in a type I error. This occurs because the naive linear model greater underestimates the standard errors of the fixed effect coefficients. The estimation of the ndvi effects from the lme model (lme1) is more defensible. Note also that the lme model does not result in a type I error for the garbage variable (lme2).
+
+```{r}
+lm1 <- lm(score ~ ndvi, data = students)
+summary(lm1)
+
+lm2 <- lm(score ~ garbage, data = students)
+summary(lm2)
+
+lme1 = lme(fixed = score ~ ndvi, data = students, random = ~1 | zone,
+          corr = corSpatial(form = ~X + Y, type ="spherical", nugget = F), method = "REML")
+summary(lme1)
+
+lme2 = lme(fixed = score ~ garbage, data = students, random = ~1 | zone,
+          corr = corSpatial(form = ~X + Y, type ="spherical", nugget = F), method = "REML")
+summary(lme2)
+```
+
+
+
