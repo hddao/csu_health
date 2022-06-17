@@ -130,6 +130,29 @@ school <- readr::read_rds("DATA/Processed/Aim1/aim1_school.rds") %>%
 ses <- readr::read_rds("DATA/Processed/Aim1/aim1_ses.rds")
 tract <- tigris::tracts(state = 'CO', year = 2019)
 
+expense_df <- readr::read_rds("DATA/Processed/Aim1/expense_df.rds")
+coi <- readr::read_csv("DATA/Raw/SES index/Child Opportunity Index/index.csv") %>%
+  dplyr::filter(stateusps == "CO" & year == 2015) %>%
+  dplyr::select(geoid,
+                tidyselect::ends_with("SE_nat"),
+                tidyselect::ends_with("SE_stt"),
+                tidyselect::ends_with("SE_met")) %>%
+  dplyr::rename(GEOID = geoid)
+
+ruca <- openxlsx::read.xlsx("DATA/Raw/ruca2010revised.xlsx",
+                            sheet = "Data", startRow = 2) %>%
+  janitor::clean_names() %>%
+  dplyr::filter(select_state == "CO") %>%
+  dplyr::rename(GEOID = 4, ruca = 5, ruca_2 = 6) %>%
+  dplyr::select(GEOID, ruca, ruca_2) %>%
+  dplyr::mutate(ruca_2 = ruca_2 %>% sprintf("%.1f", .)) %>%
+  dplyr::mutate(ruca_desc = dplyr::case_when(
+    ruca %>% dplyr::between(1, 3) ~ "Metropolitan",
+    ruca %>% dplyr::between(4, 6) ~ "Micropolitan",
+    ruca %>% dplyr::between(7, 9) ~ "Small Town",
+    ruca == 10 ~ "Rural Area"))
+
+
 
 # Merge with student data -------------------------------------------------
 aim3_all <- testscore %>%
@@ -152,7 +175,28 @@ aim3_all <- testscore %>%
   # TRACT: spatially join to dataset tract to get censustract GEOID
   sf::st_join(tract %>% dplyr::select(GEOID) %>% sf::st_transform(crs = 26953)) %>%
   # SES
-  dplyr::left_join(ses %>% dplyr::select(-contains(c("B"))), by = "GEOID")
+  dplyr::left_join(ses %>% dplyr::select(-contains(c("B"))), by = "GEOID")%>%
+  # Add school expense data
+  dplyr::left_join(expense_df %>%
+                     dplyr::select(cdenumber,
+                                   tidyselect::starts_with("p")),
+                   by = "cdenumber") %>%
+  # Get COI
+  # dplyr::mutate(GEOID = GEOID %>% as.character()) %>%
+  dplyr::left_join(coi, by = "GEOID") %>%
+  # Get ruca
+  dplyr::left_join(ruca, by = "GEOID") %>%
+  # log10 for ses_medianhhincome
+  dplyr::mutate(ses_medianhhincome_log10 = log10(ses_medianhhincome)) %>%
+  # testscore_totalunexcuseddays_cat
+  dplyr::mutate(testscore_totalunexcuseddays_cat = dplyr::case_when(
+    testscore_totalunexcuseddays == 0  ~ "1",
+    0 < testscore_totalunexcuseddays & testscore_totalunexcuseddays <= 2  ~ "2",
+    2 < testscore_totalunexcuseddays & testscore_totalunexcuseddays <= 5  ~ "3",
+    5 < testscore_totalunexcuseddays ~ "4",
+    TRUE ~ NA_character_))
+
+
 
 
 # Eligible Criteria -------------------------------------------------------
@@ -176,13 +220,13 @@ aim3_analysis <- aim3_analysis %>%
 
 # Save Data ---------------------------------------------------------------
 
-save_data(greenspaceall_geometry,
-          "DATA/Processed/Aim3/aim3_greenspaceall_geometry",
-          "DATA/Processed/Aim3/Archived/aim3_greenspaceall_geometry")
-
-save_data(greenspaceall_school,
-          "DATA/Processed/Aim3/aim3_greenspaceall_school",
-          "DATA/Processed/Aim3/Archived/aim3_greenspaceall_school")
+# save_data(greenspaceall_geometry,
+#           "DATA/Processed/Aim3/aim3_greenspaceall_geometry",
+#           "DATA/Processed/Aim3/Archived/aim3_greenspaceall_geometry")
+#
+# save_data(greenspaceall_school,
+#           "DATA/Processed/Aim3/aim3_greenspaceall_school",
+#           "DATA/Processed/Aim3/Archived/aim3_greenspaceall_school")
 
 save_data(aim3_all,
           "DATA/Processed/Aim3/aim3_all",
